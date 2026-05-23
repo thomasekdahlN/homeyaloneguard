@@ -177,5 +177,3 @@ export default class SimulationEngine {
   }
 
 }
-
-module.exports = SimulationEngine;

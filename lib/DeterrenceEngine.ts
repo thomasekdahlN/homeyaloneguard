@@ -94,5 +94,3 @@ export default class DeterrenceEngine {
   }
 
 }
-
-module.exports = DeterrenceEngine;

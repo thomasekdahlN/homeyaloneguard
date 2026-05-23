@@ -36,5 +36,3 @@ export default class EventLog {
   }
 
 }
-
-module.exports = EventLog;

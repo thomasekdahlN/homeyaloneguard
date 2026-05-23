@@ -55,5 +55,3 @@ export default class LightAuthGuard {
   }
 
 }
-
-module.exports = LightAuthGuard;

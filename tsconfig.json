@@ -7,5 +7,11 @@
       "node",
       "homey"
     ]
-  }
+  },
+  "exclude": [
+    "node_modules",
+    ".homeybuild",
+    "test",
+    "vitest.config.ts"
+  ]
 }

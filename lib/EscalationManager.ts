@@ -105,5 +105,3 @@ export default class EscalationManager {
   }
 
 }
-
-module.exports = EscalationManager;

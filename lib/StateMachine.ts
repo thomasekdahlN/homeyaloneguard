@@ -95,5 +95,3 @@ export default class StateMachine {
   }
 
 }
-
-module.exports = StateMachine;

@@ -69,5 +69,3 @@ export default class FalseAlarmFilter {
   }
 
 }
-
-module.exports = FalseAlarmFilter;
