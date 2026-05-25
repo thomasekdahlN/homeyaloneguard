@@ -50,7 +50,11 @@ class McCallisterGuardApp extends Homey.App {
     this.simulation = new SimulationEngine(this.homey, this.homeyApi, this.eventLog, this.lightAuth, () => this.getSettings());
     this.cameras = new CameraManager(this.homey, this.homeyApi, this.eventLog);
 
-    this.lightAuth.setActivePredicate(() => this.deterrence.getActiveZone() !== null);
+    this.lightAuth.setActivePredicate(() => {
+      if (this.stateMachine.getMode() === 'disarmed') return false;
+      if (this.isTestActive()) return false;
+      return this.deterrence.getActiveZone() !== null;
+    });
 
     this.stateMachine.onModeChange((next, previous) => this.handleModeChange(next, previous));
     this.deterrence.onDeterrenceStarted((reactionZoneId, motionZoneId) => {
