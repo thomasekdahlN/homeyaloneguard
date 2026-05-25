@@ -56,18 +56,14 @@ export interface UrlSuggestion {
 }
 
 export const SUGGESTED_AUDIO_URLS: UrlSuggestion[] = [
-  { label: 'Politi-sirene (innebygd)', url: '/assets/media/police-siren.mp3' },
-  { label: 'Brann-alarm (innebygd)', url: '/assets/media/fire-alarm.mp3' },
-  { label: 'Bjeffende vakthund (innebygd)', url: '/assets/media/guard-dog.mp3' },
-  { label: 'Truende stemme (innebygd)', url: '/assets/media/intruder-voice.mp3' },
-  { label: 'Knust glass (innebygd)', url: '/assets/media/glass-break.mp3' },
+  { label: 'Politi-sirene (innebygd)', url: '/assets/media/police-siren.ogg' },
+  { label: 'Brann-alarm (innebygd)', url: '/assets/media/fire-alarm.ogg' },
+  { label: 'Bjeffende vakthund (innebygd)', url: '/assets/media/guard-dog.ogg' },
+  { label: 'Truende stemme (norsk, innebygd)', url: '/assets/media/intruder-voice.m4a' },
+  { label: 'Generell alarm-beep (innebygd)', url: '/assets/media/alarm-beep.ogg' },
 ];
 
-export const SUGGESTED_VIDEO_URLS: UrlSuggestion[] = [
-  { label: 'Blålys-animasjon (innebygd)', url: '/assets/media/blue-lights.mp4' },
-  { label: 'Politi i vinduet (innebygd)', url: '/assets/media/cop-silhouette.mp4' },
-  { label: 'Stor hund (innebygd)', url: '/assets/media/large-dog.mp4' },
-];
+export const SUGGESTED_VIDEO_URLS: UrlSuggestion[] = [];
 
 export const SETTINGS_KEYS = {
   MODE: 'mode',

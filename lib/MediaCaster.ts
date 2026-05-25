@@ -30,12 +30,11 @@ export default class MediaCaster {
     const screen = devices.find((d: any) => Array.isArray(d.capabilities)
       && (d.capabilities.includes('speaker_playing') || d.capabilities.includes('cast_url')));
 
-    if (screen && screen.capabilities.includes('cast_url')) {
-      const url = videoUrl ?? '/assets/media/blue-lights.mp4';
+    if (videoUrl && screen && screen.capabilities.includes('cast_url')) {
       try {
-        await screen.setCapabilityValue({ capabilityId: 'cast_url', value: url });
+        await screen.setCapabilityValue({ capabilityId: 'cast_url', value: videoUrl });
         this.active.set(zoneId, { stop: async () => this.stopScreen(screen) });
-        this.log.add('info', `Caster video (${url}) til skjerm i sone ${zoneId}.`, zoneId);
+        this.log.add('info', `Caster video (${videoUrl}) til skjerm i sone ${zoneId}.`, zoneId);
         return;
       } catch (err) {
         this.log.add('warning', `Cast feilet: ${(err as Error).message}. Faller tilbake til lys.`, zoneId);
@@ -45,7 +44,7 @@ export default class MediaCaster {
   }
 
   async startSiren(zoneId: string, customUrl: string | null): Promise<void> {
-    const url = customUrl ?? '/assets/media/police-siren.mp3';
+    const url = customUrl ?? '/assets/media/police-siren.ogg';
     const devices = await this.zoneDevices(zoneId);
     const speaker = devices.find((d: any) => Array.isArray(d.capabilities)
       && (d.capabilities.includes('speaker_playing') || d.capabilities.includes('volume_set')));
