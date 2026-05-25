@@ -24,13 +24,13 @@
 
     .row {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 8px;
-      align-items: center;
+      align-items: stretch;
     }
 
     .mode-btn {
-      flex: 1;
+      width: 100%;
       padding: 14px;
       border: 0;
       border-radius: 8px;
@@ -54,7 +54,6 @@
 
     .mode-btn.panic {
       background: #c0392b;
-      flex: 0 0 100%;
     }
 
     .mode-btn.inactive {
@@ -246,20 +245,12 @@
       color: #555;
     }
 
-    .stop-btn {
-      width: 100%;
-      padding: 14px;
-      margin-bottom: 12px;
+    .mode-btn.stop {
       background: #34495e;
-      color: #fff;
-      border: 0;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
+      margin-bottom: 8px;
     }
 
-    .stop-btn.active {
+    .mode-btn.stop.alarm-active {
       background: #c0392b;
       animation: blink 0.8s linear infinite;
     }
@@ -373,15 +364,15 @@
 
   <section class="tab-panel active" id="tab-dashboard">
     <div id="status" class="status-line">Laster status…</div>
-    <button class="stop-btn" id="btn-stop">🛑 Stopp alarm</button>
+    <button class="mode-btn stop" id="btn-stop" style="display:none;">🛑 Stopp alarm</button>
     <div class="row" style="margin-bottom:12px;">
-      <button class="mode-btn disarmed" data-mode="disarmed">Deaktivert</button>
+      <button class="mode-btn disarmed" data-mode="disarmed">Hjemme</button>
       <button class="mode-btn armed_away" data-mode="armed_away">Borte</button>
-      <button class="mode-btn armed_stay" data-mode="armed_stay">Natt</button>
+      <button class="mode-btn armed_stay" data-mode="armed_stay">Skallsikring</button>
       <button class="mode-btn panic" id="btn-panic">🚨 PANIKK</button>
     </div>
     <div class="info-banner">Alarmen aktiveres kun via knappene over eller en flow. Som standard antas det at du er
-      hjemme (deaktivert). Bruk «Stopp alarm» for å avbryte eskalering, sirener og avskrekking uten å endre modus.
+      hjemme. Bruk «Stopp alarm» for å avbryte eskalering, sirener og avskrekking uten å endre modus.
     </div>
   </section>
 
@@ -420,12 +411,11 @@
 
       <h3>Modi</h3>
       <ul>
-        <li><strong>Deaktivert (hjemme)</strong> — Default. Ingen overvåking, ingen avskrekking. Lys styres
-          normalt.</li>
+        <li><strong>Hjemme</strong> — Default. Ingen overvåking, ingen avskrekking. Lys styres normalt.</li>
         <li><strong>Borte</strong> — Full overvåking. Kevin-simulering (lys av/på) starter automatisk for å late
           som noen er hjemme. Bevegelse i en sone trigger avskrekking i reaksjonssonen.</li>
-        <li><strong>Natt</strong> — Du sover. Bevegelse innendørs ignoreres, men kontakt-sensorer (dør/vindu) eskalerer
-          umiddelbart.</li>
+        <li><strong>Skallsikring</strong> — Du sover. Bevegelse innendørs ignoreres, men kontakt-sensorer (dør/vindu)
+          eskalerer umiddelbart.</li>
       </ul>
 
       <h3>Avskrekking (sone-matrise)</h3>
@@ -578,8 +568,8 @@
 
       function modeLabel(mode) {
         return mode === 'armed_away' ? 'Borte'
-          : mode === 'armed_stay' ? 'Natt'
-            : 'Deaktivert';
+          : mode === 'armed_stay' ? 'Skallsikring'
+            : 'Hjemme';
       }
 
       function renderStatus(s) {
@@ -596,8 +586,10 @@
         document.querySelectorAll('.mode-btn[data-mode]').forEach((b) => {
           b.classList.toggle('inactive', b.dataset.mode !== s.mode);
         });
-        const alarmActive = s.inCrisis || s.escalationPending || s.activeDeterrenceZone || s.activeMotionZone;
-        $('btn-stop').classList.toggle('active', !!alarmActive);
+        const alarmActive = !!(s.inCrisis || s.escalationPending || s.activeDeterrenceZone || s.activeMotionZone);
+        const stopBtn = $('btn-stop');
+        stopBtn.style.display = alarmActive ? '' : 'none';
+        stopBtn.classList.toggle('alarm-active', alarmActive);
       }
 
       function renderDatalists() {

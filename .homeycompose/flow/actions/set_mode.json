@@ -12,9 +12,27 @@
       "name": "mode",
       "type": "dropdown",
       "values": [
-        { "id": "disarmed",   "label": { "en": "Disarmed (Start entry delay)", "no": "Deaktivert (start innpassering)" } },
-        { "id": "armed_away", "label": { "en": "Armed away (with exit delay)", "no": "Borte (med utpassering)" } },
-        { "id": "armed_stay", "label": { "en": "Armed stay (immediate)",       "no": "Nattmodus (umiddelbart)" } }
+        {
+          "id": "disarmed",
+          "label": {
+            "en": "Home (disarmed)",
+            "no": "Hjemme (deaktivert)"
+          }
+        },
+        {
+          "id": "armed_away",
+          "label": {
+            "en": "Away (with exit delay)",
+            "no": "Borte (med utpassering)"
+          }
+        },
+        {
+          "id": "armed_stay",
+          "label": {
+            "en": "Perimeter armed (immediate)",
+            "no": "Skallsikring (umiddelbart)"
+          }
+        }
       ]
     }
   ]

@@ -12,9 +12,27 @@
       "name": "mode",
       "type": "dropdown",
       "values": [
-        { "id": "disarmed",   "label": { "en": "Disarmed",   "no": "Deaktivert" } },
-        { "id": "armed_away", "label": { "en": "Armed away", "no": "Borte" } },
-        { "id": "armed_stay", "label": { "en": "Armed stay", "no": "Natt" } }
+        {
+          "id": "disarmed",
+          "label": {
+            "en": "Home",
+            "no": "Hjemme"
+          }
+        },
+        {
+          "id": "armed_away",
+          "label": {
+            "en": "Away",
+            "no": "Borte"
+          }
+        },
+        {
+          "id": "armed_stay",
+          "label": {
+            "en": "Perimeter armed",
+            "no": "Skallsikring"
+          }
+        }
       ]
     }
   ]
