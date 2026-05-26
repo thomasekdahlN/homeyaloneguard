@@ -99,7 +99,7 @@ class McCallisterGuardApp extends Homey.App {
       const card = this.homey.flow.getTriggerCard('alarm_escalated');
       card.trigger({}).catch(() => { /* best-effort */ });
     });
-    this.cameras.onSnapshot((zoneId, _cameraId, cameraName) => {
+    this.cameras.onSnapshot((zoneId, _cameraId, cameraName, snapshotImage) => {
       const zoneName = this.zoneNameCache.get(zoneId) ?? zoneId;
       const tokens = {
         zone: zoneName,
@@ -107,6 +107,7 @@ class McCallisterGuardApp extends Homey.App {
         sensor_type: 'camera',
         mode: this.stateMachine.getMode(),
         timestamp: new Date().toISOString(),
+        snapshot: snapshotImage,
       };
       this.homey.flow.getTriggerCard('snapshot_taken').trigger(tokens)
         .then(() => {
@@ -146,7 +147,10 @@ class McCallisterGuardApp extends Homey.App {
       this.log(`Media URL tokens resolved (${Object.keys(tokens).length}).`);
     } catch (err) {
       this.log(`Could not resolve media URL tokens: ${(err as Error).message}`);
-      this.mediaTokens = Object.fromEntries(Object.keys(McCallisterGuardApp.BUNDLED_MEDIA).map((k) => [k, '']));
+      this.mediaTokens = Object.keys(McCallisterGuardApp.BUNDLED_MEDIA).reduce<Record<string, string>>((acc, k) => {
+        acc[k] = '';
+        return acc;
+      }, {});
     }
   }
 

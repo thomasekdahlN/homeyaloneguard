@@ -12,7 +12,7 @@ interface ZoneLoop {
 }
 
 /** Called when a camera successfully captures a snapshot. */
-export type SnapshotListener = (zoneId: string, cameraId: string, cameraName: string) => void;
+export type SnapshotListener = (zoneId: string, cameraId: string, cameraName: string, image: any) => void;
 
 export default class CameraManager {
 
@@ -71,9 +71,21 @@ export default class CameraManager {
     const cameras = await this.zoneCameras(zoneId);
     for (const camera of cameras) {
       try {
-        const image = camera.images && camera.images[0];
-        if (!image) continue;
+        const camImage = camera.images && camera.images[0];
+        if (!camImage) continue;
         loop.snapshotCount += 1;
+
+        // Create a native Homey Image for the flow token so it can be routed
+        // to Telegram, FTP, Dropbox etc. by the user's flow.
+        const flowImage = await (this.homey.images as any).createImage();
+        flowImage.setStream(async (stream: NodeJS.WritableStream) => {
+          try {
+            const readable = await camImage.getStream();
+            readable.pipe(stream);
+          } catch {
+            (stream as NodeJS.WritableStream & { end: () => void }).end();
+          }
+        });
 
         if (loop.pushCount < MAX_PUSH_PER_EVENT) {
           await this.homey.notifications.createNotification({
@@ -83,8 +95,13 @@ export default class CameraManager {
         }
 
         for (const listener of this.listeners) {
-          try { listener(zoneId, camera.id, camera.name || zoneId); } catch { /* best-effort */ }
+          try { listener(zoneId, camera.id, camera.name || zoneId, flowImage); } catch { /* best-effort */ }
         }
+
+        // Unregister the image after 60s — long enough for any flow action to fetch it.
+        this.homey.setTimeout(() => {
+          (this.homey.images as any).unregisterImage(flowImage).catch(() => { /* best-effort */ });
+        }, 60_000);
       } catch (err) {
         this.log.add('warning', `Snapshot-kall feilet: ${(err as Error).message}`, zoneId);
       }

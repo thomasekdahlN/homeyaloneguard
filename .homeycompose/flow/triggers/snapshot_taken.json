@@ -11,32 +11,70 @@
     {
       "name": "zone",
       "type": "string",
-      "title": { "en": "Zone", "no": "Sone" },
-      "example": { "en": "Living room", "no": "Stua" }
+      "title": {
+        "en": "Zone",
+        "no": "Sone"
+      },
+      "example": {
+        "en": "Living room",
+        "no": "Stua"
+      }
     },
     {
       "name": "sensor",
       "type": "string",
-      "title": { "en": "Camera", "no": "Kamera" },
-      "example": { "en": "Front door camera", "no": "Kamera hoveddør" }
+      "title": {
+        "en": "Camera",
+        "no": "Kamera"
+      },
+      "example": {
+        "en": "Front door camera",
+        "no": "Kamera hoveddør"
+      }
     },
     {
       "name": "sensor_type",
       "type": "string",
-      "title": { "en": "Sensor type", "no": "Sensortype" },
-      "example": { "en": "camera", "no": "camera" }
+      "title": {
+        "en": "Sensor type",
+        "no": "Sensortype"
+      },
+      "example": {
+        "en": "camera",
+        "no": "camera"
+      }
     },
     {
       "name": "mode",
       "type": "string",
-      "title": { "en": "Arm mode", "no": "Armert modus" },
-      "example": { "en": "armed_away", "no": "armed_away" }
+      "title": {
+        "en": "Arm mode",
+        "no": "Armert modus"
+      },
+      "example": {
+        "en": "armed_away",
+        "no": "armed_away"
+      }
     },
     {
       "name": "timestamp",
       "type": "string",
-      "title": { "en": "Timestamp (ISO 8601)", "no": "Tidsstempel (ISO 8601)" },
-      "example": { "en": "2026-05-26T08:00:00.000Z", "no": "2026-05-26T08:00:00.000Z" }
+      "title": {
+        "en": "Timestamp (ISO 8601)",
+        "no": "Tidsstempel (ISO 8601)"
+      },
+      "example": {
+        "en": "2026-05-26T08:00:00.000Z",
+        "no": "2026-05-26T08:00:00.000Z"
+      }
+    },
+    {
+      "name": "snapshot",
+      "type": "image",
+      "title": {
+        "en": "Snapshot image",
+        "no": "Snapshot-bilde"
+      }
     }
   ]
 }

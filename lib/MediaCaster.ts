@@ -4,7 +4,9 @@ import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
 import type LightAuthGuard from './LightAuthGuard';
 import { isLight } from './Capabilities';
-import { DEFAULT_ALARM_BLINK_OFF, DEFAULT_ALARM_BLINK_ON, DEFAULT_BLINK_SECONDS, GuardSettings } from './types';
+import {
+  DEFAULT_ALARM_BLINK_OFF, DEFAULT_ALARM_BLINK_ON, DEFAULT_BLINK_SECONDS, GuardSettings,
+} from './types';
 
 const BLUE_HUE = 0.66;
 const RED_HUE = 0.0;
