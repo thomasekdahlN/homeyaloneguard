@@ -1,7 +1,7 @@
 'use strict';
 
 import type { GuardSettings, Mode } from './lib/types';
-import { classify, sensorType } from './lib/Capabilities';
+import { classify, isCamera, sensorType } from './lib/Capabilities';
 import type { SensorType } from './lib/Capabilities';
 
 interface AppRef {
@@ -67,8 +67,8 @@ module.exports = {
     ]);
     type ZoneSensor = { id: string; name: string; type: SensorType };
     type ZoneCaps = {
-      hasAudio: boolean; hasVideo: boolean; hasLights: boolean;
-      audioDevices: string[]; videoDevices: string[]; lightDevices: string[];
+      hasAudio: boolean; hasVideo: boolean; hasLights: boolean; hasCameras: boolean;
+      audioDevices: string[]; videoDevices: string[]; lightDevices: string[]; cameraDevices: string[];
       sensors: ZoneSensor[];
     };
     const caps: Record<string, ZoneCaps> = {};
@@ -78,9 +78,11 @@ module.exports = {
         hasAudio: false,
         hasVideo: false,
         hasLights: false,
+        hasCameras: false,
         audioDevices: [],
         videoDevices: [],
         lightDevices: [],
+        cameraDevices: [],
         sensors: [],
       });
       const k = classify(d);
@@ -88,6 +90,7 @@ module.exports = {
       if (k.isAudio) { c.hasAudio = true; c.audioDevices.push(name); }
       if (k.isVideo) { c.hasVideo = true; c.videoDevices.push(name); }
       if (k.isLight) { c.hasLights = true; c.lightDevices.push(name); }
+      if (isCamera(d)) { c.hasCameras = true; c.cameraDevices.push(name); }
       const st = sensorType(d);
       if (st) c.sensors.push({ id: String(d.id), name, type: st });
     }
@@ -100,9 +103,11 @@ module.exports = {
         hasAudio: c?.hasAudio ?? false,
         hasVideo: c?.hasVideo ?? false,
         hasLights: c?.hasLights ?? false,
+        hasCameras: c?.hasCameras ?? false,
         audioDevices: c?.audioDevices ?? [],
         videoDevices: c?.videoDevices ?? [],
         lightDevices: c?.lightDevices ?? [],
+        cameraDevices: c?.cameraDevices ?? [],
         sensors: c?.sensors ?? [],
       };
     });

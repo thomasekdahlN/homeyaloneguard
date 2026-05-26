@@ -798,9 +798,16 @@
       }
 
       function capBadges(z) {
-        if (!settings.kevin_zones?.[z.id]) return '';
-        const lightList = (z.lightDevices || []).join(', ') || 'ingen';
-        return `<span class="cap-badges"><span title="Kevin-modus aktiv – lys: ${esc(lightList)}">💡</span></span>`;
+        const badges = [];
+        if (settings.kevin_zones?.[z.id]) {
+          const lightList = (z.lightDevices || []).join(', ') || 'ingen';
+          badges.push(`<span title="Kevin-modus aktiv – lys: ${esc(lightList)}">💡</span>`);
+        }
+        if (z.hasCameras) {
+          const camList = (z.cameraDevices || []).join(', ') || 'ukjent';
+          badges.push(`<span title="Kamera: ${esc(camList)}">📷</span>`);
+        }
+        return badges.length ? `<span class="cap-badges">${badges.join('')}</span>` : '';
       }
 
       function renderZoneBlocks() {
