@@ -21,6 +21,9 @@ export type KevinZones = Record<string, boolean>;
 
 export type ZoneSeconds = Record<string, number>;
 
+/** Per-camera snapshot mode: alarm_only = only during alarm/deterrence, motion = also on every motion event. */
+export type CameraMode = 'alarm_only' | 'motion';
+
 export interface GuardSettings {
   bedtime: string;
   sunset_offset: number;
@@ -38,11 +41,16 @@ export interface GuardSettings {
   blink_off: ZoneSeconds;
   alarm_blink_on: number;
   alarm_blink_off: number;
+  camera_mode: Record<string, CameraMode>;
 }
 
 export const DEFAULT_BLINK_SECONDS = 15;
 export const DEFAULT_ALARM_BLINK_ON = 1;
 export const DEFAULT_ALARM_BLINK_OFF = 1;
+/** Max snapshots per alarm/deterrence loop before auto-stopping. */
+export const ALARM_SNAPSHOT_MAX = 10;
+/** Number of snapshots to take on a motion-triggered burst (non-alarm). */
+export const MOTION_BURST_COUNT = 3;
 
 export const DEFAULT_SETTINGS: GuardSettings = {
   bedtime: '23:30',
@@ -61,6 +69,7 @@ export const DEFAULT_SETTINGS: GuardSettings = {
   blink_off: {},
   alarm_blink_on: DEFAULT_ALARM_BLINK_ON,
   alarm_blink_off: DEFAULT_ALARM_BLINK_OFF,
+  camera_mode: {},
 };
 
 export const SETTINGS_KEYS = {

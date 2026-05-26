@@ -70,7 +70,7 @@ class McCallisterGuardApp extends Homey.App {
     this.falseAlarm = new FalseAlarmFilter();
     this.escalation = new EscalationManager(this.homey, this.homeyApi, this.eventLog, this.lightAuth);
     this.simulation = new SimulationEngine(this.homey, this.homeyApi, this.eventLog, this.lightAuth, () => this.getSettings());
-    this.cameras = new CameraManager(this.homey, this.homeyApi, this.eventLog);
+    this.cameras = new CameraManager(this.homey, this.homeyApi, this.eventLog, () => this.getSettings());
 
     this.lightAuth.setActivePredicate(() => {
       if (this.stateMachine.getMode() === 'disarmed') return false;
@@ -436,6 +436,8 @@ class McCallisterGuardApp extends Homey.App {
 
   private async onMotion(zoneId: string, deviceId: string): Promise<void> {
     this.motionLastSeen.set(zoneId, Date.now());
+    // Motion burst runs regardless of arm state — captures who moves through the house.
+    this.cameras.captureMotionBurst(zoneId).catch(() => { /* best-effort */ });
     const mode = this.stateMachine.getMode();
     if (mode === 'disarmed') return;
     if (this.stateMachine.isExitDelayActive()) return;

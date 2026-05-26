@@ -66,9 +66,11 @@ module.exports = {
       homey.app.homeyApi.devices.getDevices(),
     ]);
     type ZoneSensor = { id: string; name: string; type: SensorType };
+    type ZoneCamera = { id: string; name: string };
     type ZoneCaps = {
       hasAudio: boolean; hasVideo: boolean; hasLights: boolean; hasCameras: boolean;
-      audioDevices: string[]; videoDevices: string[]; lightDevices: string[]; cameraDevices: string[];
+      audioDevices: string[]; videoDevices: string[]; lightDevices: string[];
+      cameras: ZoneCamera[];
       sensors: ZoneSensor[];
     };
     const caps: Record<string, ZoneCaps> = {};
@@ -82,7 +84,7 @@ module.exports = {
         audioDevices: [],
         videoDevices: [],
         lightDevices: [],
-        cameraDevices: [],
+        cameras: [],
         sensors: [],
       });
       const k = classify(d);
@@ -90,7 +92,7 @@ module.exports = {
       if (k.isAudio) { c.hasAudio = true; c.audioDevices.push(name); }
       if (k.isVideo) { c.hasVideo = true; c.videoDevices.push(name); }
       if (k.isLight) { c.hasLights = true; c.lightDevices.push(name); }
-      if (isCamera(d)) { c.hasCameras = true; c.cameraDevices.push(name); }
+      if (isCamera(d)) { c.hasCameras = true; c.cameras.push({ id: String(d.id), name }); }
       const st = sensorType(d);
       if (st) c.sensors.push({ id: String(d.id), name, type: st });
     }
@@ -107,7 +109,7 @@ module.exports = {
         audioDevices: c?.audioDevices ?? [],
         videoDevices: c?.videoDevices ?? [],
         lightDevices: c?.lightDevices ?? [],
-        cameraDevices: c?.cameraDevices ?? [],
+        cameras: c?.cameras ?? [],
         sensors: c?.sensors ?? [],
       };
     });
