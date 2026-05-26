@@ -14,12 +14,17 @@
     }
 
     h2 {
-      margin: 4px 0 12px;
+      margin: 4px 0 16px;
+      color: #1A531A;
+      border-bottom: 3px solid #F2A900;
+      padding-bottom: 8px;
+      font-size: 22px;
     }
 
     h3 {
       margin: 20px 0 8px;
       font-size: 16px;
+      color: #1A531A;
     }
 
     .row {
@@ -41,19 +46,20 @@
     }
 
     .mode-btn.disarmed {
-      background: #2ecc71;
+      background: #1A531A;
     }
 
     .mode-btn.armed_away {
-      background: #e67e22;
+      background: #F2A900;
+      color: #102A43;
     }
 
     .mode-btn.armed_stay {
-      background: #2980b9;
+      background: #102A43;
     }
 
     .mode-btn.panic {
-      background: #c0392b;
+      background: #D32F2F;
     }
 
     .mode-btn.inactive {
@@ -79,7 +85,7 @@
     }
 
     .crisis {
-      background: #c0392b !important;
+      background: #D32F2F !important;
       color: #fff;
       animation: blink 0.6s linear infinite;
     }
@@ -101,13 +107,13 @@
     }
 
     .zone-card.motion {
-      background: #e74c3c;
+      background: #D32F2F;
       color: #fff;
     }
 
     .zone-card.deter {
-      background: #3498db;
-      color: #fff;
+      background: #F2A900;
+      color: #102A43;
     }
 
     .log-entry {
@@ -123,15 +129,15 @@
     }
 
     .lvl.info {
-      color: #2c3e50;
+      color: #102A43;
     }
 
     .lvl.warning {
-      color: #e67e22;
+      color: #F2A900;
     }
 
     .lvl.alarm {
-      color: #c0392b;
+      color: #D32F2F;
     }
 
     .lvl.critical {
@@ -176,7 +182,7 @@
 
     .save-btn {
       padding: 10px 16px;
-      background: #1f3a5f;
+      background: #1A531A;
       color: #fff;
       border: 0;
       border-radius: 6px;
@@ -192,7 +198,7 @@
     .saved-toast {
       display: inline-block;
       margin-left: 12px;
-      color: #27ae60;
+      color: #1A531A;
       font-size: 12px;
       opacity: 0;
       transition: opacity 0.2s;
@@ -222,8 +228,8 @@
     }
 
     .tab-btn.active {
-      color: #1f3a5f;
-      border-bottom-color: #1f3a5f;
+      color: #1A531A;
+      border-bottom-color: #1A531A;
       background: #fff;
     }
 
@@ -237,8 +243,8 @@
 
     .info-banner {
       padding: 10px 12px;
-      background: #fff8e1;
-      border-left: 4px solid #f1c40f;
+      background: #FDF5DC;
+      border-left: 4px solid #F2A900;
       font-size: 12px;
       border-radius: 4px;
       margin-bottom: 12px;
@@ -246,12 +252,12 @@
     }
 
     .mode-btn.stop {
-      background: #34495e;
+      background: #102A43;
       margin-bottom: 8px;
     }
 
     .mode-btn.stop.alarm-active {
-      background: #c0392b;
+      background: #D32F2F;
       animation: blink 0.8s linear infinite;
     }
 
@@ -288,13 +294,13 @@
     }
 
     .zone-block summary .status-pill.motion {
-      background: #e74c3c;
+      background: #D32F2F;
       color: #fff;
     }
 
     .zone-block summary .status-pill.deter {
-      background: #3498db;
-      color: #fff;
+      background: #F2A900;
+      color: #102A43;
     }
 
     .zone-block summary .cap-badges {
@@ -313,8 +319,8 @@
 
     .zone-body .info-banner.hint {
       grid-column: 1 / -1;
-      background: #eaf3fd;
-      color: #1f3a5f;
+      background: #E8F0E8;
+      color: #1A531A;
     }
 
     .zone-body {
@@ -369,7 +375,7 @@
     .zone-body .test-btn {
       grid-column: 1 / -1;
       padding: 8px 14px;
-      background: #16a085;
+      background: #1A531A;
       color: #fff;
       border: 0;
       border-radius: 4px;
@@ -386,7 +392,7 @@
 
     .docs h3 {
       margin-top: 20px;
-      color: #1f3a5f;
+      color: #1A531A;
     }
 
     .docs code {
@@ -428,11 +434,9 @@
   </section>
 
   <section class="tab-panel" id="tab-zones">
-    <div class="info-banner">Klikk på en sone for å sette reaksjonssone (sone-matrise), Kevin-modus, lyd/video for
-      avskrekking, og for å teste oppsettet.</div>
+    <div class="info-banner">Klikk på en sone for å sette reaksjonssone (sone-matrise), Kevin-modus,
+      avskrekkings-flow, og for å teste oppsettet.</div>
     <div id="zones"></div>
-    <datalist id="audio-suggestions"></datalist>
-    <datalist id="video-suggestions"></datalist>
     <div style="margin-top:16px;">
       <button class="save-btn" id="btn-save-zones">Lagre sone-innstillinger</button>
       <span class="saved-toast" id="saved-toast-zones">✓ Lagret</span>
@@ -537,55 +541,25 @@
         til Google Sheet). <code>timestamp</code>-token på <code>alarm_triggered</code> gir presis ISO-tid
         som kan inkluderes i SMS og push.</p>
 
-      <h3>Cast-skjermer og høyttalere</h3>
-      <p>Appen oppdager både direkte cast-bare enheter (<code>cast_url</code>-capability) og «soft cast»-enheter
-        som Chromecast, Google Cast, Nest Hub, Sonos og AirPlay-mottakere. For sistnevnte har Homey ofte ikke
-        direkte URL-cast — bruk i så fall en Homey-flow: <em>«Når McCallister Guard utløser alarm → Cast URL
-          til [enhet]»</em> med <code>zone</code>-token for å velge riktig enhet. Hvis ingen skjerm er
-        tilgjengelig brukes blå/rød strobing på lysene som fallback.</p>
-
-      <h3>Lyd-/video-kilder og lisenser</h3>
-      <p>Innebygde lyd-klipp under <code>/assets/media/</code>:</p>
-      <ul>
-        <li><code>police-siren.ogg</code> — «American police siren» av <em>lezer</em> via pdsounds.org / Wikimedia
-          Commons. <strong>Public Domain</strong>.</li>
-        <li><code>fire-alarm.ogg</code> — «Motorsirene - Feuerwehralarm» av <em>Nallchen</em> via Wikimedia Commons.
-          <strong>Public Domain</strong>.
-        </li>
-        <li><code>alarm-beep.ogg</code> — «Alarm or siren» av <em>stephan</em> via pdsounds.org / Wikimedia Commons.
-          <strong>Public Domain</strong>.
-        </li>
-        <li><code>guard-dog.ogg</code> — «Het blaffen van een Duitse herder» av <em>Beeld en Geluid</em> (Sound &amp;
-          Vision) via Wikimedia Commons. Lisens: <strong>CC BY-SA 4.0</strong> —
-          <a href="https://creativecommons.org/licenses/by-sa/4.0/"
-            target="_blank">creativecommons.org/licenses/by-sa/4.0</a>.
-        </li>
-        <li><code>intruder-voice.m4a</code> — generert lokalt med macOS «Henrik» (norsk TTS). Tekst er en del av denne
-          appen.</li>
-      </ul>
-      <p>Innebygde videoklipp under <code>/assets/media/</code>:</p>
-      <ul>
-        <li><code>blue-lights.mp4</code> — generert syntetisk med ffmpeg (blå/rødt blinkende mønster). Ingen
-          lisens-begrensning.</li>
-        <li><code>cop-silhouette.mp4</code> — generert syntetisk med ffmpeg (svart humanoid-silhuett over blinkende
-          blå/rød). Ingen lisens-begrensning.</li>
-        <li><code>large-dog.mp4</code> — utdrag av «Irish Wolfhound mix, panting» av <em>Sage Ross</em> via Wikimedia
-          Commons. Lisens: <strong>CC BY-SA 3.0</strong> —
-          <a href="https://creativecommons.org/licenses/by-sa/3.0/"
-            target="_blank">creativecommons.org/licenses/by-sa/3.0</a>.
-        </li>
-      </ul>
       <h3>Avskrekking pr. sone — hva er mulig?</h3>
-      <p>Hver sone vises i Soneoversikten med små symboler som beskriver hva sonen kan brukes til:</p>
+      <p>Hver sone vises i Soneoversikten med små symboler som beskriver hva sonen inneholder:</p>
       <ul>
-        <li>🔊 Sonen har en høyttaler (kan spille sirene, hund, stemme).</li>
-        <li>📺 Sonen har en cast-bar skjerm (kan vise blålys, silhuett, stor hund).</li>
-        <li>💡 Sonen har lys (kan brukes til blink-strobing som siste utvei).</li>
+        <li>🔊 Sonen har en høyttaler.</li>
+        <li>📺 Sonen har en skjerm.</li>
+        <li>💡 Sonen har lys (brukes til blink-strobing som siste utvei).</li>
       </ul>
-      <p>Lyd-URL og video-URL vises kun i soner der det er en faktisk høyttaler eller skjerm. Hvis en sone bare har
-        lys, brukes <strong>blinkende blå/rødt strobe-lys</strong> automatisk som siste utvei — strobe-effekten i
-        et vindu er i seg selv en sterk avskrekking (ligner politilys utenfra). Hvis en sone hverken har lyd, video
-        eller lys, kan den ikke brukes som reaksjonssone og test-knappen er deaktivert.</p>
+      <p>All lyd- og video-avspilling skjer via en <strong>avskrekkings-flow</strong> du selv velger pr. sone.
+        Hvis ingen flow er valgt, faller appen tilbake til <strong>blinkende blå/rødt strobe-lys</strong> på
+        lysene i sonen — strobe-effekten i et vindu er i seg selv en sterk avskrekking (ligner politilys utenfra).
+        Hvis en sone hverken har flow eller lys, kan den ikke brukes som reaksjonssone og test-knappen er
+        deaktivert.</p>
+
+      <h3>Avskrekkings-flow pr. sone</h3>
+      <p>Velg en eksisterende Homey-flow som «avskrekkings-flow» for hver sone i Soneoversikten. Når avskrekking
+        starter i sonen fyrer McCallister Guard <code>deterrence_started</code>-triggeren — sett opp flowen din
+        til å lytte på den triggeren og spille av video/lyd via Chromecast-appen, Samsung TV-appen, Sonos eller
+        hva du måtte ønske. Bruk <code>zone</code>-tokenet til å velge riktig enhet hvis du har flere soner.
+        Når en avskrekkings-flow er valgt, hopper appen over blink-fallback for den sonen.</p>
     </div>
   </section>
 
@@ -602,8 +576,6 @@
 
       let zones = [];
       let settings = null;
-      let suggestedAudio = [];
-      let suggestedVideo = [];
       let lastStatus = { activeMotionZone: null, activeDeterrenceZone: null, recentMotionZones: [] };
 
       const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -624,12 +596,7 @@
             Homey.api('GET', '/settings'),
           ]);
           zones = z;
-          suggestedAudio = s._suggested_audio_urls || [];
-          suggestedVideo = s._suggested_video_urls || [];
-          delete s._suggested_audio_urls;
-          delete s._suggested_video_urls;
           settings = s;
-          renderDatalists();
           renderGlobalSettings();
           renderZoneBlocks();
         } catch (err) {
@@ -679,13 +646,6 @@
         stopBtn.classList.toggle('alarm-active', showStop);
       }
 
-      function renderDatalists() {
-        $('audio-suggestions').innerHTML = suggestedAudio
-          .map((o) => `<option value="${esc(o.url)}">${esc(o.label)}</option>`).join('');
-        $('video-suggestions').innerHTML = suggestedVideo
-          .map((o) => `<option value="${esc(o.url)}">${esc(o.label)}</option>`).join('');
-      }
-
       function zoneStatusPill(zoneId) {
         if (zoneId === lastStatus.activeDeterrenceZone) return '<span class="status-pill deter">AVSKREKKING</span>';
         if ((lastStatus.recentMotionZones || []).includes(zoneId)) return '<span class="status-pill motion">BEVEGELSE</span>';
@@ -697,11 +657,8 @@
         const audioList = (z.audioDevices || []).join(', ') || 'ingen';
         const videoList = (z.videoDevices || []).join(', ') || 'ingen';
         const lightList = (z.lightDevices || []).join(', ') || 'ingen';
-        if (z.hasAudio) parts.push(`<span title="Lyd-enheter: ${esc(audioList)}">🔊</span>`);
-        if (z.hasVideo) {
-          const suffix = z.canCastUrl ? '' : ' (krever Homey-flow for direkte cast)';
-          parts.push(`<span title="Skjerm/cast-enheter: ${esc(videoList)}${suffix}">📺</span>`);
-        }
+        if (z.hasAudio) parts.push(`<span title="Høyttalere: ${esc(audioList)}">🔊</span>`);
+        if (z.hasVideo) parts.push(`<span title="Skjermer: ${esc(videoList)}">📺</span>`);
         if (z.hasLights) parts.push(`<span title="Lys: ${esc(lightList)}">💡</span>`);
         return parts.length ? `<span class="cap-badges">${parts.join('')}</span>` : '';
       }
@@ -711,43 +668,19 @@
         const byId = Object.fromEntries(zones.map((z) => [z.id, z]));
         $('zones').innerHTML = zones.map((z) => {
           const opts = zones.map((r) => `<option value="${esc(r.id)}" ${settings.zone_matrix[z.id] === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
-          const audio = settings.zone_audio_urls[z.id] || '';
-          const video = settings.zone_video_urls[z.id] || '';
           const reactionId = settings.zone_matrix[z.id] || z.id;
           const reaction = byId[reactionId] || z;
-          const reactionHasMedia = reaction.hasAudio || reaction.hasVideo;
-          const reactionHasAny = reactionHasMedia || reaction.hasLights;
-
-          let mediaFields = '';
-          if (z.hasAudio) {
-            mediaFields += `<label>Lyd-URL</label>`
-              + `<input type="text" list="audio-suggestions" data-audio="${esc(z.id)}" value="${esc(audio)}" placeholder="standard sirene">`;
-          }
-          if (z.hasVideo) {
-            mediaFields += `<label>Video-URL</label>`
-              + `<input type="text" list="video-suggestions" data-video="${esc(z.id)}" value="${esc(video)}" placeholder="standard blålys">`;
-            if (!z.canCastUrl) {
-              const names = (z.videoDevices || []).join(', ');
-              mediaFields += `<div class="info-banner hint">Skjerm(er) oppdaget: ${esc(names)}. Disse eksponerer ikke <code>cast_url</code> som capability, så McCallister Guard kan ikke pushe video direkte. Bruk en Homey-flow med Chromecast-appens «Cast URL»-action på <em>alarm_triggered</em>-triggeren, eller la blink-fallback ta over.</div>`;
-            }
-          }
-          if (!z.hasAudio && !z.hasVideo) {
-            const msg = z.hasLights
-              ? 'Sonen har ingen høyttaler eller skjerm. Avskrekking her vil bruke blinkende lys som siste utvei.'
-              : 'Sonen har ingen lyd-, video- eller lys-enheter. Den kan ikke brukes som reaksjonssone.';
-            const cls = z.hasLights ? 'hint' : 'warn';
-            mediaFields += `<div class="info-banner ${cls}">${msg}</div>`;
-          }
+          const deterrentFlows = settings.deterrent_flows || {};
+          const hasExternalFlow = !!deterrentFlows[z.id];
+          const reactionHasAny = !!deterrentFlows[reactionId] || reaction.hasLights;
 
           let testBtn;
           if (!reactionHasAny) {
             const reactionName = esc(reaction.name);
-            testBtn = `<button class="test-btn" data-test="${esc(z.id)}" disabled title="Reaksjonssone «${reactionName}» har ingen lyd/video/lys.">▶ Test avskrekking</button>`
-              + `<div class="info-banner warn">Reaksjonssone «${reactionName}» har ingen enheter for avskrekking. Velg en annen reaksjonssone for å teste.</div>`;
-          } else if (reactionHasMedia) {
-            testBtn = `<button class="test-btn" data-test="${esc(z.id)}">▶ Test avskrekking fra denne sonen</button>`;
+            testBtn = `<button class="test-btn" data-test="${esc(z.id)}" disabled title="Reaksjonssone «${reactionName}» har ingen lys og ingen ekstern flow.">▶ Test avskrekking</button>`
+              + `<div class="info-banner warn">Reaksjonssone «${reactionName}» har verken lys eller ekstern avskrekkings-flow. Velg en annen reaksjonssone for å teste.</div>`;
           } else {
-            testBtn = `<button class="test-btn" data-test="${esc(z.id)}">▶ Test blink-avskrekking (kun lys, siste utvei)</button>`;
+            testBtn = `<button class="test-btn" data-test="${esc(z.id)}">▶ Test avskrekking (blink + evt. flow)</button>`;
           }
 
           const perimeterSet = new Set(settings.perimeter_sensors || []);
@@ -766,6 +699,11 @@
             sensorBlock = `<label>Skallsikring</label><div class="sensor-empty">Ingen dør/vindu- eller bevegelses-sensorer i denne sonen.</div>`;
           }
 
+          const flowBlock = `<label>Ekstern avskrekkings-flow</label>`
+            + `<label style="justify-self:start;"><input type="checkbox" data-deter-flow="${esc(z.id)}" ${hasExternalFlow ? 'checked' : ''}>`
+            + ` Jeg har laget en Homey-flow som lytter på «McCallister Guard – Avskrekking startet» for denne sonen.</label>`
+            + `<div class="info-banner">Blinkende lys kjører alltid som fallback. Krysser du av her, vet appen at en ekstern flow også tar over (lyd/video/animasjoner) og lar være å «kjempe» mot lysendringer den gjør.</div>`;
+
           return `<details class="zone-block" data-zone="${esc(z.id)}">`
             + `<summary><span>${esc(z.name)}${capBadges(z)}</span>${zoneStatusPill(z.id)}</summary>`
             + `<div class="zone-body">`
@@ -774,7 +712,7 @@
             + `<label>Kevin-modus</label>`
             + `<label style="justify-self:start;"><input type="checkbox" data-kevin="${esc(z.id)}" ${settings.kevin_zones[z.id] ? 'checked' : ''}> Lys-simulering</label>`
             + sensorBlock
-            + mediaFields
+            + flowBlock
             + testBtn
             + `</div></details>`;
         }).join('');
@@ -822,7 +760,6 @@
           ['exit_delay', 'Exit delay (s)', 'number'],
           ['entry_delay', 'Entry delay (s)', 'number'],
           ['escalation_minutes', 'Escalation time (min)', 'number'],
-          ['custom_audio_url', 'Standard lyd-URL', 'url'],
         ];
         $('settings-grid').innerHTML = fields.map(([k, label, t]) => `<label for="set_${k}">${label}</label>`
           + `<input id="set_${k}" type="${t}" value="${esc(settings[k] ?? '')}">`).join('');
@@ -839,8 +776,6 @@
         btn.disabled = true;
         try {
           const updated = await Homey.api('PUT', '/settings', payload);
-          delete updated._suggested_audio_urls;
-          delete updated._suggested_video_urls;
           settings = updated;
           flashToast(toastId);
         } finally {
@@ -870,19 +805,18 @@
       });
       $('btn-save').addEventListener('click', async () => {
         const payload = {};
-        ['bedtime', 'sunset_offset', 'random_min', 'random_max', 'deterrence_delay', 'exit_delay', 'entry_delay', 'escalation_minutes', 'custom_audio_url']
-          .forEach((k) => { const v = $('set_' + k).value; payload[k] = (k === 'bedtime' || k === 'custom_audio_url') ? v : Number(v); });
+        ['bedtime', 'sunset_offset', 'random_min', 'random_max', 'deterrence_delay', 'exit_delay', 'entry_delay', 'escalation_minutes']
+          .forEach((k) => { const v = $('set_' + k).value; payload[k] = k === 'bedtime' ? v : Number(v); });
         await saveSettings(payload, $('btn-save'), 'saved-toast');
       });
       $('btn-save-zones').addEventListener('click', async () => {
         const payload = {
-          kevin_zones: {}, zone_matrix: {}, zone_audio_urls: {}, zone_video_urls: {}, perimeter_sensors: [],
+          kevin_zones: {}, zone_matrix: {}, perimeter_sensors: [], deterrent_flows: {},
         };
         document.querySelectorAll('[data-kevin]').forEach((c) => { payload.kevin_zones[c.dataset.kevin] = c.checked; });
         document.querySelectorAll('[data-matrix]').forEach((s) => { if (s.value) payload.zone_matrix[s.dataset.matrix] = s.value; });
-        document.querySelectorAll('[data-audio]').forEach((i) => { if (i.value.trim()) payload.zone_audio_urls[i.dataset.audio] = i.value.trim(); });
-        document.querySelectorAll('[data-video]').forEach((i) => { if (i.value.trim()) payload.zone_video_urls[i.dataset.video] = i.value.trim(); });
         document.querySelectorAll('[data-perimeter]:checked').forEach((c) => { payload.perimeter_sensors.push(c.dataset.perimeter); });
+        document.querySelectorAll('[data-deter-flow]').forEach((c) => { if (c.checked) payload.deterrent_flows[c.dataset.deterFlow] = true; });
         await saveSettings(payload, $('btn-save-zones'), 'saved-toast-zones');
         renderZoneBlocks();
       });

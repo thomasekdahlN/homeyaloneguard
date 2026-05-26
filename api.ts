@@ -1,7 +1,6 @@
 'use strict';
 
 import type { GuardSettings, Mode } from './lib/types';
-import { SUGGESTED_AUDIO_URLS, SUGGESTED_VIDEO_URLS } from './lib/types';
 import { classify, sensorType } from './lib/Capabilities';
 import type { SensorType } from './lib/Capabilities';
 
@@ -55,7 +54,7 @@ module.exports = {
     ]);
     type ZoneSensor = { id: string; name: string; type: SensorType };
     type ZoneCaps = {
-      hasAudio: boolean; hasVideo: boolean; hasLights: boolean; canCastUrl: boolean;
+      hasAudio: boolean; hasVideo: boolean; hasLights: boolean;
       audioDevices: string[]; videoDevices: string[]; lightDevices: string[];
       sensors: ZoneSensor[];
     };
@@ -66,7 +65,6 @@ module.exports = {
         hasAudio: false,
         hasVideo: false,
         hasLights: false,
-        canCastUrl: false,
         audioDevices: [],
         videoDevices: [],
         lightDevices: [],
@@ -77,7 +75,6 @@ module.exports = {
       if (k.isAudio) { c.hasAudio = true; c.audioDevices.push(name); }
       if (k.isVideo) { c.hasVideo = true; c.videoDevices.push(name); }
       if (k.isLight) { c.hasLights = true; c.lightDevices.push(name); }
-      if (k.canCastUrl) c.canCastUrl = true;
       const st = sensorType(d);
       if (st) c.sensors.push({ id: String(d.id), name, type: st });
     }
@@ -90,7 +87,6 @@ module.exports = {
         hasAudio: c?.hasAudio ?? false,
         hasVideo: c?.hasVideo ?? false,
         hasLights: c?.hasLights ?? false,
-        canCastUrl: c?.canCastUrl ?? false,
         audioDevices: c?.audioDevices ?? [],
         videoDevices: c?.videoDevices ?? [],
         lightDevices: c?.lightDevices ?? [],
@@ -100,11 +96,7 @@ module.exports = {
   },
 
   async getSettings({ homey }: Ctx) {
-    return {
-      ...homey.app.getSettings(),
-      _suggested_audio_urls: SUGGESTED_AUDIO_URLS,
-      _suggested_video_urls: SUGGESTED_VIDEO_URLS,
-    };
+    return homey.app.getSettings();
   },
 
   async setSettings({ homey, body }: BodyCtx<Partial<GuardSettings>>) {

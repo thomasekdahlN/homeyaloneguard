@@ -4,6 +4,7 @@ import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
 import type LightAuthGuard from './LightAuthGuard';
 import { GuardSettings } from './types';
+import { isLight } from './Capabilities';
 
 const TICK_INTERVAL_MS = 60_000;
 
@@ -20,7 +21,7 @@ export default class SimulationEngine {
     private readonly log: EventLog,
     private readonly lightAuth: LightAuthGuard,
     private readonly getSettings: () => GuardSettings,
-  ) {}
+  ) { }
 
   start(): void {
     if (this.tickInterval) return;
@@ -98,11 +99,7 @@ export default class SimulationEngine {
     const all = Object.values(devices) as any[];
 
     for (const zoneId of picked) {
-      const zoneLights = all.filter((d) => d.zone === zoneId
-        && Array.isArray(d.capabilities)
-        && d.capabilities.includes('onoff')
-        && !d.capabilities.includes('alarm_motion')
-        && !d.capabilities.includes('alarm_contact'));
+      const zoneLights = all.filter((d) => d.zone === zoneId && isLight(d));
       for (const light of zoneLights) {
         try {
           this.lightAuth.registerOwnCommand(light.id, true);
@@ -118,10 +115,7 @@ export default class SimulationEngine {
     const devices = await this.homeyApi.devices.getDevices();
     const all = Object.values(devices) as any[];
     for (const zoneId of this.currentZones) {
-      const zoneLights = all.filter((d) => d.zone === zoneId
-        && Array.isArray(d.capabilities)
-        && d.capabilities.includes('onoff')
-        && !d.capabilities.includes('alarm_motion'));
+      const zoneLights = all.filter((d) => d.zone === zoneId && isLight(d));
       for (const light of zoneLights) {
         try {
           this.lightAuth.registerOwnCommand(light.id, false);

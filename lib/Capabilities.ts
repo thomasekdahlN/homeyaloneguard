@@ -52,7 +52,13 @@ export function isAudioDevice(d: any): boolean {
 
 export function isLight(d: any): boolean {
   if (isSensor(d)) return false;
-  return caps(d).includes('onoff');
+  if (!caps(d).includes('onoff')) return false;
+  return deviceClass(d) === 'light';
+}
+
+export function isCamera(d: any): boolean {
+  if (caps(d).includes('camera_image')) return true;
+  return deviceClass(d) === 'camera';
 }
 
 export function classify(d: any): DeviceClassification {

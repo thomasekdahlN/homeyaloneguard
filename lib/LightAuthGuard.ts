@@ -2,6 +2,7 @@
 
 import type EventLog from './EventLog';
 import { CMD_BUFFER_TTL_MS } from './types';
+import { isLight } from './Capabilities';
 
 interface OwnCommand {
   deviceId: string;
@@ -51,7 +52,7 @@ export default class LightAuthGuard {
 
     try {
       const device = await this.homeyApi.devices.getDevice({ id: deviceId });
-      if (!device || !Array.isArray(device.capabilities) || !device.capabilities.includes('onoff')) return;
+      if (!device || !isLight(device)) return;
       zoneId = device.zone;
       deviceName = device.name || deviceId;
       if (zoneId) {

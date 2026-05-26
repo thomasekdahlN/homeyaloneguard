@@ -9,14 +9,13 @@ export interface EventEntry {
   level: EventLevel;
   message: string;
   zoneId?: string;
+  zoneName?: string;
   deviceId?: string;
 }
 
 export type ZoneMatrix = Record<string, string>;
 
 export type KevinZones = Record<string, boolean>;
-
-export type ZoneUrlMap = Record<string, string>;
 
 export interface GuardSettings {
   bedtime: string;
@@ -27,12 +26,10 @@ export interface GuardSettings {
   exit_delay: number;
   entry_delay: number;
   escalation_minutes: number;
-  custom_audio_url: string | null;
   zone_matrix: ZoneMatrix;
   kevin_zones: KevinZones;
-  zone_audio_urls: ZoneUrlMap;
-  zone_video_urls: ZoneUrlMap;
   perimeter_sensors: string[];
+  deterrent_flows: Record<string, boolean>;
 }
 
 export const DEFAULT_SETTINGS: GuardSettings = {
@@ -44,32 +41,11 @@ export const DEFAULT_SETTINGS: GuardSettings = {
   exit_delay: 60,
   entry_delay: 30,
   escalation_minutes: 5,
-  custom_audio_url: null,
   zone_matrix: {},
   kevin_zones: {},
-  zone_audio_urls: {},
-  zone_video_urls: {},
   perimeter_sensors: [],
+  deterrent_flows: {},
 };
-
-export interface UrlSuggestion {
-  label: string;
-  url: string;
-}
-
-export const SUGGESTED_AUDIO_URLS: UrlSuggestion[] = [
-  { label: 'Politi-sirene (innebygd)', url: '/assets/media/police-siren.ogg' },
-  { label: 'Brann-alarm (innebygd)', url: '/assets/media/fire-alarm.ogg' },
-  { label: 'Bjeffende vakthund (innebygd)', url: '/assets/media/guard-dog.ogg' },
-  { label: 'Truende stemme (norsk, innebygd)', url: '/assets/media/intruder-voice.m4a' },
-  { label: 'Generell alarm-beep (innebygd)', url: '/assets/media/alarm-beep.ogg' },
-];
-
-export const SUGGESTED_VIDEO_URLS: UrlSuggestion[] = [
-  { label: 'Blålys-animasjon (innebygd)', url: '/assets/media/blue-lights.mp4' },
-  { label: 'Politi-silhuett i vinduet (innebygd)', url: '/assets/media/cop-silhouette.mp4' },
-  { label: 'Stor hund (innebygd)', url: '/assets/media/large-dog.mp4' },
-];
 
 export const SETTINGS_KEYS = {
   MODE: 'mode',

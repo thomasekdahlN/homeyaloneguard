@@ -198,6 +198,36 @@ Brukes når huseier sover.
 * **Fallback (uten skjerm):** Hvis ingen castbar skjerm finnes i reaksjonssonen, simuleres blålys ved å blinke smartpærer mellom blå og hvit ved hjelp av `light_hue`/`light_saturation`/`dim`.
 * **Politisirene:** En royalty-free `.mp3` (politisirene) pakkes i `assets/media/police-siren.mp3` og brukes som fallback dersom `Custom Audio URL` ikke er satt.
 
+## 6.2. Cast-enhet pr. sone — prioritering og overstyring
+
+Når en sone har flere cast-bare enheter (f.eks. TV + Nest Hub + Sonos), velger appen automatisk den
+mest egnede via `lib/CastPriority.ts`. Rangeringen (`castRank`) gir poeng for hver egenskap, høyere
+score vinner:
+
+| Egenskap | Poeng |
+|---|---|
+| Video (`isCastableScreen`) | +50 |
+| TV-aktig (`class === 'tv'` eller driver matcher `chromecast/androidtv/appletv/webos/bravia/samsung.tv/nest.hub`) | +30 |
+| Direkte `cast_url`-capability | +15 |
+| Kun lyd (ikke video) | +10 |
+
+Eksempler: en TV med `cast_url` → 95, en TV uten cast_url → 80, en Nest Hub → 95 (TV-aktig regex),
+en Sonos Beam → 60 (video uten TV-treff), en Nest Audio → 10 (kun lyd).
+
+Settings-feltet **`cast_devices: Record<zoneId, string[]>`** lagrer brukerens overstyring per sone:
+
+* **Sone ikke i map** → auto-pick brukes (også for nye enheter som dukker opp senere).
+* **Sone har array** → kun de id-ene som er listet brukes; tom array deaktiverer cast i sonen.
+
+UI-en under «Soneoversikt» viser per cast-enhet: ikon (📺 TV, 🖥️ video, 🔊 lyd), navn,
+type-tags og en «auto»-pille på den enheten som ville blitt valgt automatisk. Checkbox-listen
+er forhåndskrysset basert på `cast_devices[zoneId] ?? castAutoPick`.
+
+`MediaCaster.startBlueLights` og `MediaCaster.startSiren` respekterer utvalget via
+`selectedCastIds(zoneId, devices)`. Audio-sirene har en ekstra fallback til hvilken som helst
+høyttaler i sonen hvis den valgte enheten ikke responderer, for å unngå at en uventet feil
+slukker krise-sirenen.
+
 ---
 
 ## 7. Integrasjon med Homey Presence (Flow-kort SDK)

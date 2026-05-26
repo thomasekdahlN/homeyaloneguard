@@ -20,7 +20,7 @@ export default class EscalationManager {
     private readonly homeyApi: any,
     private readonly log: EventLog,
     private readonly lightAuth: LightAuthGuard,
-  ) {}
+  ) { }
 
   start(escalationMinutes: number): void {
     if (this.timer || this.inCrisis) return;
@@ -91,10 +91,10 @@ export default class EscalationManager {
           this.lightAuth.registerOwnCommand(light.id, true);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: true });
           if (light.capabilities.includes('light_hue')) {
-            await light.setCapabilityValue({ capabilityId: 'light_hue', value: toggle ? 0 : 0 });
+            await light.setCapabilityValue({ capabilityId: 'light_hue', value: toggle ? 0 : 0.66 });
           }
           if (light.capabilities.includes('light_saturation')) {
-            await light.setCapabilityValue({ capabilityId: 'light_saturation', value: toggle ? 1 : 0 });
+            await light.setCapabilityValue({ capabilityId: 'light_saturation', value: 1 });
           }
           if (light.capabilities.includes('dim')) {
             await light.setCapabilityValue({ capabilityId: 'dim', value: 1 });

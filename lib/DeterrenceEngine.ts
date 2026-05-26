@@ -65,12 +65,13 @@ export default class DeterrenceEngine {
       await this.media.stopZone(this.activeDeterrenceZone);
     }
     this.activeDeterrenceZone = zoneId;
-    const settings = this.getSettings();
-    const videoUrl = settings.zone_video_urls[zoneId] ?? null;
-    const audioUrl = settings.zone_audio_urls[zoneId] ?? settings.custom_audio_url;
-    this.log.add('alarm', `Direkte avskrekking i sone ${zoneId} (test).`, zoneId);
-    await this.media.startBlueLights(zoneId, videoUrl);
-    await this.media.startSiren(zoneId, audioUrl);
+    const hasExternalFlow = !!this.getSettings().deterrent_flows?.[zoneId];
+    const suffix = hasExternalFlow ? ' + ekstern flow' : '';
+    this.log.add('alarm', `Direkte avskrekking i sone ${zoneId} (test) – blinkende lys${suffix}.`, zoneId);
+    await this.media.startBlinkFallback(zoneId);
+    for (const listener of this.listeners) {
+      try { listener(zoneId, zoneId); } catch { /* best-effort */ }
+    }
   }
 
   async abort(reason = 'Avbrutt.'): Promise<void> {
@@ -88,13 +89,10 @@ export default class DeterrenceEngine {
 
   private async execute(reactionZoneId: string, motionZoneId: string): Promise<void> {
     this.activeDeterrenceZone = reactionZoneId;
-    this.log.add('alarm', `Avskrekking startet i sone ${reactionZoneId} (tyv i ${motionZoneId}).`, reactionZoneId);
-
-    const settings = this.getSettings();
-    const videoUrl = settings.zone_video_urls[reactionZoneId] ?? null;
-    const audioUrl = settings.zone_audio_urls[reactionZoneId] ?? settings.custom_audio_url;
-    await this.media.startBlueLights(reactionZoneId, videoUrl);
-    await this.media.startSiren(reactionZoneId, audioUrl);
+    const hasExternalFlow = !!this.getSettings().deterrent_flows?.[reactionZoneId];
+    const suffix = hasExternalFlow ? ' + ekstern flow' : '';
+    this.log.add('alarm', `Avskrekking startet i sone ${reactionZoneId} (tyv i ${motionZoneId}) – blinkende lys${suffix}.`, reactionZoneId);
+    await this.media.startBlinkFallback(reactionZoneId);
 
     for (const listener of this.listeners) {
       try { listener(reactionZoneId, motionZoneId); } catch { /* best-effort */ }

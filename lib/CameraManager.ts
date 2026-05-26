@@ -3,6 +3,7 @@
 import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
 import { MAX_PUSH_PER_EVENT, SNAPSHOT_INTERVAL_MS } from './types';
+import { isCamera } from './Capabilities';
 
 interface ZoneLoop {
   interval: NodeJS.Timeout;
@@ -18,10 +19,15 @@ export default class CameraManager {
     private readonly homey: Homey,
     private readonly homeyApi: any,
     private readonly log: EventLog,
-  ) {}
+  ) { }
 
-  startForZone(zoneId: string): void {
+  async startForZone(zoneId: string): Promise<void> {
     if (this.loops.has(zoneId)) return;
+    const cameras = await this.zoneCameras(zoneId);
+    if (cameras.length === 0) {
+      this.log.add('info', `Snapshot-loop hoppes over: ingen kameraer i sone ${zoneId}.`, zoneId);
+      return;
+    }
     const loop: ZoneLoop = {
       pushCount: 0,
       snapshotCount: 0,
@@ -32,7 +38,7 @@ export default class CameraManager {
       }, SNAPSHOT_INTERVAL_MS),
     };
     this.loops.set(zoneId, loop);
-    this.log.add('info', `Snapshot-loop startet i sone ${zoneId} (hvert ${SNAPSHOT_INTERVAL_MS / 1000}s).`, zoneId);
+    this.log.add('info', `Snapshot-loop startet i sone ${zoneId} (${cameras.length} kamera, hvert ${SNAPSHOT_INTERVAL_MS / 1000}s).`, zoneId);
   }
 
   stopForZone(zoneId: string): void {
@@ -53,12 +59,8 @@ export default class CameraManager {
     const loop = this.loops.get(zoneId);
     if (!loop) return;
 
-    const devices = await this.homeyApi.devices.getDevices();
-    const cameras = Object.values(devices).filter((d: any) => d.zone === zoneId
-      && Array.isArray(d.capabilities)
-      && d.capabilities.includes('camera_image'));
-
-    for (const camera of cameras as any[]) {
+    const cameras = await this.zoneCameras(zoneId);
+    for (const camera of cameras) {
       try {
         const image = camera.images && camera.images[0];
         if (!image) continue;
@@ -74,6 +76,11 @@ export default class CameraManager {
         this.log.add('warning', `Snapshot-kall feilet: ${(err as Error).message}`, zoneId);
       }
     }
+  }
+
+  private async zoneCameras(zoneId: string): Promise<any[]> {
+    const devices = await this.homeyApi.devices.getDevices();
+    return Object.values(devices).filter((d: any) => d.zone === zoneId && isCamera(d));
   }
 
 }

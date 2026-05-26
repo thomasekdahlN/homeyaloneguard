@@ -3,7 +3,7 @@
 import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
 import type LightAuthGuard from './LightAuthGuard';
-import { isCastableScreen, isAudioDevice } from './Capabilities';
+import { isLight } from './Capabilities';
 
 const BLUE_HUE = 0.66;
 const RED_HUE = 0.0;
@@ -24,83 +24,10 @@ export default class MediaCaster {
     private readonly lightAuth: LightAuthGuard,
   ) { }
 
-  async startBlueLights(zoneId: string, videoUrl?: string | null): Promise<void> {
+  async startBlinkFallback(zoneId: string): Promise<void> {
     await this.stopZone(zoneId);
     const devices = await this.zoneDevices(zoneId);
-
-    const directScreen = devices.find((d: any) => Array.isArray(d.capabilities) && d.capabilities.includes('cast_url'));
-    const softScreen = directScreen ? null : devices.find((d: any) => isCastableScreen(d));
-
-    if (directScreen) {
-      const url = await this.resolveAssetUrl(videoUrl ?? '/assets/media/blue-lights.mp4');
-      try {
-        await directScreen.setCapabilityValue({ capabilityId: 'cast_url', value: url });
-        this.active.set(zoneId, { stop: async () => this.stopScreen(directScreen) });
-        this.log.add('info', `Caster video (${url}) til ${directScreen.name ?? 'skjerm'} i sone ${zoneId}.`, zoneId);
-        return;
-      } catch (err) {
-        this.log.add('warning', `Video-cast til ${directScreen.name ?? 'skjerm'} feilet: ${(err as Error).message}. Faller tilbake til lys.`, zoneId);
-      }
-    } else if (softScreen) {
-      const name = softScreen.name ?? 'ukjent';
-      this.log.add('warning', `Cast-skjerm «${name}» i sone ${zoneId} mangler cast_url. Bruk Homey-flow med Chromecast-appen, eller lys-fallback.`, zoneId);
-    } else {
-      this.log.add('info', `Ingen cast-skjerm funnet i sone ${zoneId}, bruker blinkende lys.`, zoneId);
-    }
     await this.startLightStrobe(zoneId, devices, [BLUE_HUE, RED_HUE]);
-  }
-
-  async startSiren(zoneId: string, customUrl: string | null): Promise<void> {
-    const rawUrl = customUrl ?? '/assets/media/police-siren.ogg';
-    const url = await this.resolveAssetUrl(rawUrl);
-    const devices = await this.zoneDevices(zoneId);
-
-    const castSpeaker = devices.find((d: any) => Array.isArray(d.capabilities) && d.capabilities.includes('cast_url'));
-    if (castSpeaker) {
-      try {
-        if (castSpeaker.capabilities.includes('volume_set')) {
-          await castSpeaker.setCapabilityValue({ capabilityId: 'volume_set', value: 1.0 });
-        }
-        await castSpeaker.setCapabilityValue({ capabilityId: 'cast_url', value: url });
-        this.log.add('info', `Caster lyd (${url}) til ${castSpeaker.name ?? 'høyttaler'} i sone ${zoneId}.`, zoneId);
-        return;
-      } catch (err) {
-        this.log.add('warning', `Lyd-cast til ${castSpeaker.name ?? 'høyttaler'} feilet: ${(err as Error).message}.`, zoneId);
-      }
-    }
-
-    const speaker = devices.find((d: any) => isAudioDevice(d));
-    if (!speaker) {
-      this.log.add('warning', `Ingen høyttaler funnet i sone ${zoneId}.`, zoneId);
-      return;
-    }
-    try {
-      if (speaker.capabilities.includes('volume_set')) {
-        await speaker.setCapabilityValue({ capabilityId: 'volume_set', value: 1.0 });
-      }
-      if (speaker.capabilities.includes('speaker_playing')) {
-        await speaker.setCapabilityValue({ capabilityId: 'speaker_playing', value: true });
-      }
-      this.log.add('info', `Spiller på ${speaker.name ?? 'høyttaler'} (uten URL-cast) i sone ${zoneId}.`, zoneId);
-    } catch (err) {
-      this.log.add('warning', `Sirene feilet: ${(err as Error).message}`, zoneId);
-    }
-  }
-
-  private async resolveAssetUrl(path: string): Promise<string> {
-    if (/^https?:\/\//i.test(path)) return path;
-    try {
-      const { api } = (this.homey as any);
-      if (api?.getLocalUrl) {
-        const base: string = await api.getLocalUrl();
-        const manifest: any = (this.homey as any).manifest ?? {};
-        const appId: string = manifest.id ?? 'com.mccallister.guard';
-        const cleanPath = path.startsWith('/') ? path.substring(1) : path;
-        const assetPath = cleanPath.replace(/^assets\//, '');
-        return `${base.replace(/\/$/, '')}/app/${appId}/asset/${assetPath}`;
-      }
-    } catch { /* fall through */ }
-    return path;
   }
 
   async stopZone(zoneId: string): Promise<void> {
@@ -115,24 +42,20 @@ export default class MediaCaster {
     }
     const devices = await this.zoneDevices(zoneId);
     for (const device of devices) {
-      if (!Array.isArray(device.capabilities)) continue;
-      if (device.capabilities.includes('alarm_motion') || device.capabilities.includes('alarm_contact')) continue;
-      if (device.capabilities.includes('onoff')) {
-        try {
-          this.lightAuth.registerOwnCommand(device.id, false);
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
-        } catch { /* best-effort */ }
-      }
-      if (device.capabilities.includes('speaker_playing')) {
-        try { await device.setCapabilityValue({ capabilityId: 'speaker_playing', value: false }); } catch { /* best-effort */ }
-      }
+      if (!isLight(device)) continue;
+      try {
+        this.lightAuth.registerOwnCommand(device.id, false);
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+      } catch { /* best-effort */ }
     }
   }
 
   private async startLightStrobe(zoneId: string, devices: any[], hues: number[]): Promise<void> {
-    const lights = devices.filter((d: any) => Array.isArray(d.capabilities)
-      && d.capabilities.includes('onoff')
-      && !d.capabilities.includes('alarm_motion'));
+    const lights = devices.filter((d: any) => isLight(d));
+    if (lights.length === 0) {
+      this.log.add('warning', `Ingen lys å blinke i sone ${zoneId}.`, zoneId);
+      return;
+    }
     let idx = 0;
     const interval = this.homey.setInterval(async () => {
       const hue = hues[idx % hues.length] ?? BLUE_HUE;
@@ -159,14 +82,6 @@ export default class MediaCaster {
       },
     });
     this.log.add('info', `Starter blinkende lys (fallback) i sone ${zoneId}.`, zoneId);
-  }
-
-  private async stopScreen(screen: any): Promise<void> {
-    try {
-      if (Array.isArray(screen.capabilities) && screen.capabilities.includes('speaker_playing')) {
-        await screen.setCapabilityValue({ capabilityId: 'speaker_playing', value: false });
-      }
-    } catch { /* best-effort */ }
   }
 
   private async zoneDevices(zoneId: string): Promise<any[]> {
