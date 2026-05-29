@@ -1,0 +1,57 @@
+{
+  "title": {
+    "en": "Mode !{{is|is not}} [[mode]]",
+    "no": "Modus !{{er|er ikke}} [[mode]]"
+  },
+  "titleFormatted": {
+    "en": "Mode !{{is|is not}} [[mode]]",
+    "no": "Modus !{{er|er ikke}} [[mode]]"
+  },
+  "hint": {
+    "en": "Check the current guard mode. Replaces the deprecated is_armed condition.",
+    "no": "Sjekk aktiv vaktstatus. Erstatter den utdaterte is_armed betingelsen."
+  },
+  "args": [
+    {
+      "name": "mode",
+      "type": "dropdown",
+      "values": [
+        {
+          "id": "disarmed",
+          "label": {
+            "en": "Home (disarmed)",
+            "no": "Hjemme (deaktivert)"
+          }
+        },
+        {
+          "id": "armed",
+          "label": {
+            "en": "Away (armed)",
+            "no": "Borte (armed)"
+          }
+        },
+        {
+          "id": "armed_perimeter",
+          "label": {
+            "en": "Perimeter armed",
+            "no": "Skallsikring"
+          }
+        },
+        {
+          "id": "deterrence",
+          "label": {
+            "en": "Deterrence active",
+            "no": "Avskrekking aktiv"
+          }
+        },
+        {
+          "id": "alarm",
+          "label": {
+            "en": "Alarm triggered",
+            "no": "Alarm utløst"
+          }
+        }
+      ]
+    }
+  ]
+}

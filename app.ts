@@ -33,7 +33,7 @@ class McCallisterGuardApp extends Homey.App {
   private armedStaySchedulerTimer: NodeJS.Timeout | null = null;
   private lastArmedStayWindowState: boolean | null = null;
   private deterrenceTimer: NodeJS.Timeout | null = null;
-  private previousArmedMode: 'armed_stay' | 'armed_away' | null = null;
+  private previousArmedMode: 'armed_perimeter' | 'armed' | null = null;
   private motionLastSeen = new Map<string, number>();
   private perimeterBypassEndsAt: number | null = null;
   private perimeterBypassTimer: NodeJS.Timeout | null = null;
@@ -79,7 +79,7 @@ class McCallisterGuardApp extends Homey.App {
     this.lightAuth.setActivePredicate(() => {
       // Guard lights only while armed (not during deterrence/alarm — app controls lights then)
       const m = this.stateMachine.getMode();
-      return m === 'armed_stay' || m === 'armed_away';
+      return m === 'armed_perimeter' || m === 'armed';
     });
 
     this.stateMachine.onModeChange((next, previous) => this.handleModeChange(next, previous));
@@ -110,7 +110,8 @@ class McCallisterGuardApp extends Homey.App {
     await this.registerFlowActions();
     await this.initListeners();
 
-    if (this.stateMachine.getMode() === 'armed_away') this.simulation.start();
+    if (this.stateMachine.getMode() === 'armed') this.simulation.start();
+
     this.startArmedStayScheduler();
     this.log('McCallister Guard initialisert.');
   }
@@ -128,10 +129,25 @@ class McCallisterGuardApp extends Homey.App {
     return merged;
   }
 
-  async setMode(mode: Mode): Promise<void> {
-    if (this.stateMachine.getMode() === mode && !this.stateMachine.isExitDelayActive()) return;
+  async setMode(mode: Mode, { force = false }: { force?: boolean } = {}): Promise<void> {
+    const current = this.stateMachine.getMode();
+    if (current === mode && !this.stateMachine.isExitDelayActive()) return;
+
+    // Guard: disarmed from armed_perimeter is silently ignored for external callers.
+    // A smart-lock "authorised unlock" flow must not automatically disable perimeter mode —
+    // residents can come home late without disarming the night guard.
+    // The auto-scheduler bypasses this guard via { force: true }.
+    if (mode === 'disarmed' && current === 'armed_perimeter' && !force) {
+      this.eventLog.add('info', 'Skallsikring forblir aktiv — deaktivering ignorert.');
+      return;
+    }
+
     const settings = this.getSettings();
     if (mode === 'disarmed') {
+      // Coming from alarm: fire alarm_stopped flow cards before tearing down.
+      if (current === 'alarm') {
+        this.alarmStopped('Bruker deaktiverte systemet.');
+      }
       this.clearTestStopTimer();
       this.clearDeterrenceTimer();
       this.stateMachine.cancelEntryDelay();
@@ -143,7 +159,7 @@ class McCallisterGuardApp extends Homey.App {
       this.previousArmedMode = null;
       this.alarmContext = null;
     }
-    await this.stateMachine.setMode(mode, mode === 'armed_away' ? settings.exit_delay : 0);
+    await this.stateMachine.setMode(mode, mode === 'armed' ? settings.exit_delay : 0);
   }
 
   async testDeterrence(zoneId: string): Promise<void> {
@@ -153,7 +169,7 @@ class McCallisterGuardApp extends Homey.App {
     this.eventLog.add('info', `Test: avskrekking i sone ${zoneId} — auto-stopp om ${seconds}s.`, zoneId);
     const currentMode = this.stateMachine.getMode();
     if (currentMode !== 'deterrence' && currentMode !== 'alarm') {
-      this.previousArmedMode = currentMode !== 'disarmed' ? currentMode as 'armed_stay' | 'armed_away' : null;
+      this.previousArmedMode = currentMode !== 'disarmed' ? currentMode as 'armed_perimeter' | 'armed' : null;
     }
     if (this.stateMachine.getMode() !== 'deterrence') {
       await this.stateMachine.setMode('deterrence');
@@ -176,7 +192,7 @@ class McCallisterGuardApp extends Homey.App {
     this.eventLog.add('info', `Test: full alarm (modus=alarm) — auto-stopp om ${seconds}s.`);
     const currentMode = this.stateMachine.getMode();
     if (currentMode !== 'deterrence' && currentMode !== 'alarm') {
-      this.previousArmedMode = currentMode !== 'disarmed' ? currentMode as 'armed_stay' | 'armed_away' : null;
+      this.previousArmedMode = currentMode !== 'disarmed' ? currentMode as 'armed_perimeter' | 'armed' : null;
     }
     await this.deterrence.abort('Test alarm — avskrekking avbrutt.');
     await this.stateMachine.setMode('alarm');
@@ -267,7 +283,7 @@ class McCallisterGuardApp extends Homey.App {
     }
     if (mode === 'alarm') return;
 
-    this.previousArmedMode = mode as 'armed_stay' | 'armed_away';
+    this.previousArmedMode = mode as 'armed_perimeter' | 'armed';
     const { zoneName, deviceName } = await this.resolveNames(zoneId, deviceId);
     this.alarmContext = {
       zoneId, zoneName, deviceId, deviceName, sensorType, alarmType,
@@ -284,10 +300,11 @@ class McCallisterGuardApp extends Homey.App {
       mode,
       timestamp: new Date().toISOString(),
     };
-    try { await this.homey.flow.getTriggerCard('alarm_triggered').trigger(baseTokens); } catch { /* best-effort */ }
-    const perTypeCard = McCallisterGuardApp.ALARM_TYPE_TRIGGER_CARD[alarmType];
-    if (perTypeCard) {
-      try { await this.homey.flow.getTriggerCard(perTypeCard).trigger(baseTokens); } catch { /* best-effort */ }
+    // Fire type-specific trigger: perimeter alarms → alarm_perimeter_triggered, away alarms → alarm_triggered.
+    if (alarmType === 'perimeter') {
+      try { await this.homey.flow.getTriggerCard('alarm_perimeter_triggered').trigger(baseTokens); } catch { /* best-effort */ }
+    } else {
+      try { await this.homey.flow.getTriggerCard('alarm_triggered').trigger(baseTokens); } catch { /* best-effort */ }
     }
 
     await this.deterrence.handleMotion(zoneId);
@@ -311,11 +328,6 @@ class McCallisterGuardApp extends Homey.App {
     await this.escalation.triggerCrisis();
   }
 
-  private static readonly ALARM_TYPE_TRIGGER_CARD: Partial<Record<AlarmType, string>> = {
-    intrusion: 'alarm_triggered_intrusion',
-    entry_delay_timeout: 'alarm_triggered_entry_delay',
-  };
-
   private alarmStopped(reason: string): void {
     const ctx = this.alarmContext;
     this.pushTimeline(`Alarm stoppet${ctx?.zoneName ? ` (sone: ${ctx.zoneName})` : ''} — ${reason}`);
@@ -326,17 +338,13 @@ class McCallisterGuardApp extends Homey.App {
       sensor: ctx?.deviceName ?? '',
       reason,
     };
-    try { this.homey.flow.getTriggerCard('alarm_stopped').trigger(baseTokens).catch(() => { /* best-effort */ }); } catch { /* best-effort */ }
-    const perTypeCard = McCallisterGuardApp.ALARM_TYPE_STOPPED_CARD[alarmType];
-    if (perTypeCard) {
-      try { this.homey.flow.getTriggerCard(perTypeCard).trigger(baseTokens).catch(() => { /* best-effort */ }); } catch { /* best-effort */ }
+    // Fire type-specific stopped trigger: perimeter alarms → alarm_perimeter_stopped, away alarms → alarm_stopped.
+    if (alarmType === 'perimeter') {
+      try { this.homey.flow.getTriggerCard('alarm_perimeter_stopped').trigger(baseTokens).catch(() => { /* best-effort */ }); } catch { /* best-effort */ }
+    } else {
+      try { this.homey.flow.getTriggerCard('alarm_stopped').trigger(baseTokens).catch(() => { /* best-effort */ }); } catch { /* best-effort */ }
     }
   }
-
-  private static readonly ALARM_TYPE_STOPPED_CARD: Partial<Record<AlarmType, string>> = {
-    intrusion: 'alarm_stopped_intrusion',
-    entry_delay_timeout: 'alarm_stopped_entry_delay',
-  };
 
   private pushTimeline(excerpt: string): void {
     this.homey.notifications.createNotification({ excerpt }).catch(() => { /* best-effort */ });
@@ -344,8 +352,8 @@ class McCallisterGuardApp extends Homey.App {
 
   private modeLabel(mode: Mode): string {
     if (mode === 'disarmed') return 'Hjemme (av)';
-    if (mode === 'armed_away') return 'Borte (aktiv)';
-    if (mode === 'armed_stay') return 'Skallsikring';
+    if (mode === 'armed') return 'Borte (aktiv)';
+    if (mode === 'armed_perimeter') return 'Skallsikring';
     if (mode === 'deterrence') return 'Avskrekking aktiv';
     if (mode === 'alarm') return 'ALARM';
     return String(mode);
@@ -395,7 +403,7 @@ class McCallisterGuardApp extends Homey.App {
   }
 
   /**
-   * Start the armed_stay scheduler. Checks every 60 s whether auto-arming should fire.
+   * Start the armed_perimeter scheduler. Checks every 60 s whether auto-arming should fire.
    * Also runs immediately on startup so an overnight window is respected when the app restarts.
    */
   private startArmedStayScheduler(): void {
@@ -406,22 +414,22 @@ class McCallisterGuardApp extends Homey.App {
   }
 
   /**
-   * Evaluate the armed_stay auto-schedule against the current time.
+   * Evaluate the armed_perimeter auto-schedule against the current time.
    *
-   * @param startup - When true, also activate if we are already inside the armed_stay window
+   * @param startup - When true, also activate if we are already inside the armed_perimeter window
    *                  (handles app restarts in the middle of the night).
    */
   private checkArmedStaySchedule(startup: boolean): void {
     const settings = this.getSettings();
-    if (!settings.armed_stay_auto) return;
+    if (!settings.armed_perimeter_auto) return;
 
-    const on = settings.armed_stay_on || '22:00';
-    const off = settings.armed_stay_off || '06:00';
+    const on = settings.armed_perimeter_on || '22:00';
+    const off = settings.armed_perimeter_off || '06:00';
     const now = new Date();
     const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const mode = this.stateMachine.getMode();
 
-    // Determine whether we are currently inside the armed_stay window.
+    // Determine whether we are currently inside the armed_perimeter window.
     // Overnight windows (e.g. 22:00 – 06:00) cross midnight, so the comparison
     // is: inside when now >= on OR now < off.
     const overnight = on > off;
@@ -431,14 +439,15 @@ class McCallisterGuardApp extends Homey.App {
       // On startup: remember current window state so the first tick can detect transitions.
       this.lastArmedStayWindowState = inWindow;
       // Activate immediately if inside window and currently disarmed.
+      // Never activate automatically if already in alarm (full alarm) mode.
       if (inWindow && mode === 'disarmed') {
         this.eventLog.add('info', `Automatisk skallsikring aktivert ved oppstart (kl. ${hhmm}, vindu ${on}–${off}).`);
-        this.setMode('armed_stay').catch(() => { /* best-effort */ });
+        this.setMode('armed_perimeter').catch(() => { /* best-effort */ });
       }
-      // Deactivate if outside window and still in armed_stay (edge case: schedule changed while app was down).
-      if (!inWindow && mode === 'armed_stay') {
+      // Deactivate if outside window and still in armed_perimeter (edge case: schedule changed while app was down).
+      if (!inWindow && mode === 'armed_perimeter') {
         this.eventLog.add('info', `Automatisk skallsikring deaktivert ved oppstart — utenfor tidsvindu (kl. ${hhmm}, vindu ${on}–${off}).`);
-        this.setMode('disarmed').catch(() => { /* best-effort */ });
+        this.setMode('disarmed', { force: true }).catch(() => { /* best-effort */ });
       }
       return;
     }
@@ -448,17 +457,18 @@ class McCallisterGuardApp extends Homey.App {
     if (this.lastArmedStayWindowState === inWindow) return;
     this.lastArmedStayWindowState = inWindow;
 
+    // Never activate armed_perimeter automatically if already in alarm (full alarm) or armed.
     if (inWindow && mode === 'disarmed') {
       this.eventLog.add('info', `Automatisk skallsikring aktivert (kl. ${hhmm}, vindu ${on}–${off}).`);
-      this.setMode('armed_stay').catch(() => { /* best-effort */ });
-    } else if (!inWindow && mode === 'armed_stay') {
+      this.setMode('armed_perimeter').catch(() => { /* best-effort */ });
+    } else if (!inWindow && mode === 'armed_perimeter') {
       this.eventLog.add('info', `Automatisk skallsikring deaktivert (kl. ${hhmm}, vindu ${on}–${off}).`);
-      this.setMode('disarmed').catch(() => { /* best-effort */ });
+      this.setMode('disarmed', { force: true }).catch(() => { /* best-effort */ });
     }
   }
 
   private handleModeChange(next: Mode, previous: Mode): void {
-    if (next === 'armed_away') {
+    if (next === 'armed') {
       this.simulation.start();
     } else {
       this.simulation.stop();
@@ -498,7 +508,10 @@ class McCallisterGuardApp extends Homey.App {
 
   private async registerFlowActions(): Promise<void> {
     this.homey.flow.getActionCard('set_mode')
-      .registerRunListener(async (args: { mode: Mode }) => {
+      .registerRunListener(async (args: { mode: Mode; name?: string }) => {
+        if (args.mode === 'disarmed' && args.name) {
+          this.pushTimeline(`McCallister Guard: Deaktivert av ${args.name}`);
+        }
         await this.setMode(args.mode);
         return true;
       });
@@ -531,12 +544,14 @@ class McCallisterGuardApp extends Homey.App {
         await this.testAlarm();
         return true;
       });
-    this.homey.flow.getConditionCard('is_armed')
-      .registerRunListener(async (args: { mode: Mode }) => this.stateMachine.getMode() === args.mode);
-    this.homey.flow.getConditionCard('deterrence_active')
-      .registerRunListener(async () => this.deterrence.getActiveZone() !== null);
     this.homey.flow.getConditionCard('alarm_active')
       .registerRunListener(async () => this.stateMachine.getMode() === 'alarm');
+    this.homey.flow.getConditionCard('alarm_perimeter_active')
+      .registerRunListener(async () => this.stateMachine.getMode() === 'armed_perimeter');
+    this.homey.flow.getConditionCard('get_mode')
+      .registerRunListener(async (args: { mode: Mode }) => this.stateMachine.getMode() === args.mode);
+    this.homey.flow.getConditionCard('alarm_triggered_from')
+      .registerRunListener(async (args: { mode: 'armed' | 'armed_perimeter' }) => this.previousArmedMode === args.mode);
   }
 
   private async initListeners(): Promise<void> {
@@ -584,7 +599,7 @@ class McCallisterGuardApp extends Homey.App {
     if (this.stateMachine.isExitDelayActive()) return;
     this.eventLog.add('info', `Bevegelse i sone ${zoneId}.`, zoneId, deviceId);
 
-    if (mode === 'armed_stay') {
+    if (mode === 'armed_perimeter') {
       if (!this.isPerimeterSensor(deviceId)) return;
       if (this.isPerimeterBypassed()) {
         this.eventLog.add('info', 'Bevegelse i perimetersensor ignorert (bypass aktiv).', zoneId, deviceId);
@@ -600,7 +615,7 @@ class McCallisterGuardApp extends Homey.App {
       return;
     }
 
-    // armed_away: start entry delay (first trigger) or confirm immediately (already counting).
+    // armed: start entry delay (first trigger) or confirm immediately (already counting).
     if (!this.stateMachine.isEntryDelayActive()) {
       const settings = this.getSettings();
       this.eventLog.add('info', `Inngangsforsinkelse startet (${settings.entry_delay}s) — deaktiver for å avbryte.`, zoneId);
@@ -619,9 +634,9 @@ class McCallisterGuardApp extends Homey.App {
     if (this.stateMachine.isExitDelayActive()) return;
     this.eventLog.add('warning', `Dør/vindu åpnet i sone ${zoneId}.`, zoneId, deviceId);
 
-    if (mode === 'armed_stay' && !this.isPerimeterSensor(deviceId)) return;
+    if (mode === 'armed_perimeter' && !this.isPerimeterSensor(deviceId)) return;
 
-    if (mode === 'armed_stay' && this.isPerimeterBypassed()) {
+    if (mode === 'armed_perimeter' && this.isPerimeterBypassed()) {
       this.eventLog.add('info', 'Dør/vindu i perimetersensor ignorert (bypass aktiv).', zoneId, deviceId);
       return;
     }
@@ -638,7 +653,7 @@ class McCallisterGuardApp extends Homey.App {
       return;
     }
 
-    if (mode === 'armed_stay') {
+    if (mode === 'armed_perimeter') {
       await this.enterDeterrence(zoneId, deviceId, 'contact', 'perimeter');
       return;
     }
@@ -648,8 +663,8 @@ class McCallisterGuardApp extends Homey.App {
 
   private async handleConfirmedContact(zoneId: string, deviceId: string, mode: Mode): Promise<void> {
     if (this.stateMachine.getMode() === 'disarmed') return;
-    const alarmType: AlarmType = mode === 'armed_stay' ? 'perimeter' : 'entry_delay_timeout';
-    if (mode === 'armed_stay') {
+    const alarmType: AlarmType = mode === 'armed_perimeter' ? 'perimeter' : 'entry_delay_timeout';
+    if (mode === 'armed_perimeter') {
       await this.enterDeterrence(zoneId, deviceId, 'contact', alarmType);
       return;
     }

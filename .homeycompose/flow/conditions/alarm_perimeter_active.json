@@ -1,0 +1,10 @@
+{
+  "title": {
+    "en": "Perimeter !{{is|is not}} active",
+    "no": "Skallsikring !{{er|er ikke}} aktiv"
+  },
+  "hint": {
+    "en": "True when the system is in Perimeter (armed_perimeter) mode.",
+    "no": "Sann når systemet er i Skallsikringsmodus (armed_perimeter)."
+  }
+}

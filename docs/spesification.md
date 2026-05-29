@@ -115,14 +115,14 @@ Brukeren kobler deteksjonssoner direkte til reaksjonssoner (rommet lengst unna) 
 
 Systemet er inaktivt. Ingen simulering eller avskrekkingslogikk kjører.
 
-### 5.2. Aktivert: Borte (Armed Away)
+### 5.2. Aktivert: Borte (`armed`)
 
-Aktiveres manuelt fra Dashboard eller via Flow-kort (ingen automatisk arming basert på tilstedeværelse).
+Aktiveres manuelt fra Dashboard eller via Flow-kort (`set_mode = Borte`). Har exit delay (default 60 s).
 
 * **Ved aktivering (Helsesjekk):** Appen scanner alle tilknyttede sensorer. Hvis en sensor er offline, sendes et pushvarsel: *"McCallister Guard aktivert, men [Sensor Navn] rapporterer ikke."* (Batterinivå sjekkes ikke.)
 * **Utpasseringsforsinkelse (Exit Delay):** Nedtelling starter (f.eks. 60s). Alle lys slås av, og sensorer ignoreres under nedtellingen.
 
-### 5.3. Aktivert: Natt / Skallsikring (Armed Stay)
+### 5.3. Aktivert: Skallsikring (`armed_perimeter`)
 
 Brukes når huseier sover.
 
@@ -243,22 +243,25 @@ Appen skal eksponere ferdige Flow-kort for å gjøre oppsettet sømløst mot Hom
 
 ### Triggere (NÅR...)
 
-* `McCallister Guard: Avskrekking startet i sone [Sone]`
-* `McCallister Guard: Alarm utløst` — eksponerer token `alarm_type` (`perimeter`, `intrusion`, `entry_delay_timeout`, `panic`) i tillegg til `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`
-* `McCallister Guard: Alarm avsluttet` — eksponerer `alarm_type` (samme som da alarmen ble utløst)
-* `McCallister Guard: Alarm eskalert til KRISENIVÅ`
-* `McCallister Guard: Uautorisert lys slått av automatisk`
-* `McCallister Guard: Helsesjekk feilet (Lavt batteri/Offline enheter)`
+* `alarm_triggered` — sensor aktiverer alarm i **Borte** (`armed`), tokens: `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`
+* `alarm_perimeter_triggered` — sensor aktiverer alarm i **Skallsikring** (`armed_perimeter`), samme tokens
+* `alarm_stopped` — Borte-alarm stoppet, tokens: `zone`, `sensor`, `reason`
+* `alarm_perimeter_stopped` — Skallsikring-alarm stoppet, samme tokens
+* `mode_changed` — systemet bytter modus, tokens: `mode_new`, `mode_previous`
+* `snapshot_taken` — kamera-snapshot tatt, tokens: `zone`, `sensor`, `mode`, `timestamp`, `snapshot` (image)
+* `health_check_failed` — sensorer offline ved aktivering, token: `offline_count`
 
 ### Betingelser (OG...)
 
-* `Systemet er aktivert i [Borte-modus / Natt-modus]`
-* `Alarmtype er [perimeter / intrusion / entry_delay_timeout / panic]` — for å forgrene på alarmklasse innenfor ett trigger-kort
-* `En sone-avskrekking pågår akkurat nå`
+* `alarm_active` — systemet er i `alarm`-modus (full alarm utløst)
+* `alarm_perimeter_active` — systemet er i `armed_perimeter`-modus (Skallsikring aktiv)
+* `get_mode` — systemet er i valgt modus (dropdown: alle 5 modi)
+* `alarm_triggered_from` — alarm ble utløst fra `armed` (Borte) eller `armed_perimeter` (Skallsikring)
 
 ### Handlinger (DA...)
 
-* `Aktiver McCallister Guard (Borte-modus med tidsforsinkelse)`
-* `Aktiver McCallister Guard (Natt-modus umiddelbart)`
-* `Deaktiver McCallister Guard (Start innpasseringsforsinkelse)`
-* `Utløs Panikk-knapp (Full eskalering umiddelbart)`
+* `set_mode` — sett modus til `disarmed` / `armed` / `armed_perimeter` (med valgfritt navn for Timeline)
+* `trigger_deterrence` — test avskrekking direkte i valgt sone
+* `trigger_alarm` — test full alarm (stopp etter 15 s)
+* `bypass_perimeter` — deaktiver perimeter-sensorene midlertidig (X minutter)
+* `set_camera_motion` — aktiver / deaktiver bevegelsesutløst kamera-opptak

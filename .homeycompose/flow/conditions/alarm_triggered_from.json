@@ -1,0 +1,36 @@
+{
+  "title": {
+    "en": "Alarm !{{was|was not}} triggered from [[mode]]",
+    "no": "Alarm !{{ble|ble ikke}} utløst fra [[mode]]"
+  },
+  "titleFormatted": {
+    "en": "Alarm !{{was|was not}} triggered from [[mode]]",
+    "no": "Alarm !{{ble|ble ikke}} utløst fra [[mode]]"
+  },
+  "hint": {
+    "en": "True when the current alarm or deterrence was triggered while the system was in the selected mode. Useful for different reactions depending on whether you were home (Perimeter) or away (Armed).",
+    "no": "Sann når pågående alarm eller avskrekking ble utløst mens systemet var i valgt modus. Nyttig for ulike reaksjoner avhengig av om man var hjemme (Skallsikring) eller borte (Armed)."
+  },
+  "args": [
+    {
+      "name": "mode",
+      "type": "dropdown",
+      "values": [
+        {
+          "id": "armed",
+          "label": {
+            "en": "Away (armed)",
+            "no": "Borte (armed)"
+          }
+        },
+        {
+          "id": "armed_perimeter",
+          "label": {
+            "en": "Perimeter (home at night)",
+            "no": "Skallsikring (hjemme om natten)"
+          }
+        }
+      ]
+    }
+  ]
+}

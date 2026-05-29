@@ -1,11 +1,11 @@
 {
   "title": {
-    "en": "Alarm stopped",
-    "no": "Alarm avsluttet"
+    "en": "Perimeter breach alarm stopped",
+    "no": "Skallsikring-alarm avsluttet"
   },
   "hint": {
-    "en": "Fires when the Away (armed) alarm is stopped — by the user, by disarming, or automatically. Use alarm_perimeter_stopped for perimeter (Skallsikring) alarms.",
-    "no": "Utløses når Borte-alarmen (armed) stoppes — av bruker, ved deaktivering eller automatisk. Bruk alarm_perimeter_stopped for skallsikringsalarmer."
+    "en": "Fires when a perimeter (armed_perimeter) breach alarm is stopped — by the user, by disarming, or automatically. Use alarm_stopped for Away (armed) mode alarms.",
+    "no": "Utløses når en skallsikringsalarm (armed_perimeter) stoppes — av bruker, ved deaktivering eller automatisk. Bruk alarm_stopped for Borte-modusalarmer."
   },
   "tokens": [
     {
@@ -16,8 +16,8 @@
         "no": "Sone (som utløste)"
       },
       "example": {
-        "en": "Living room",
-        "no": "Stua"
+        "en": "Hallway",
+        "no": "Gang"
       }
     },
     {
@@ -28,8 +28,8 @@
         "no": "Sensor (som utløste)"
       },
       "example": {
-        "en": "Motion sensor (hallway)",
-        "no": "Bevegelsessensor (gang)"
+        "en": "Front door",
+        "no": "Hoveddør"
       }
     },
     {

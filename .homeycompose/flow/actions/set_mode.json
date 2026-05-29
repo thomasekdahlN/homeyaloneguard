@@ -1,11 +1,11 @@
 {
   "title": {
-    "en": "Set McCallister Guard mode",
-    "no": "Sett McCallister Guard-modus"
+    "en": "Set mode",
+    "no": "Sett modus"
   },
   "titleFormatted": {
-    "en": "Set McCallister Guard mode to [[mode]]",
-    "no": "Sett McCallister Guard-modus til [[mode]]"
+    "en": "Set mode to [[mode]] by [[name]]",
+    "no": "Sett modus til [[mode]] av [[name]]"
   },
   "args": [
     {
@@ -15,25 +15,33 @@
         {
           "id": "disarmed",
           "label": {
-            "en": "Home (disarmed)",
-            "no": "Hjemme (deaktivert)"
+            "en": "Home",
+            "no": "Hjemme"
           }
         },
         {
-          "id": "armed_away",
+          "id": "armed",
           "label": {
-            "en": "Away (with exit delay)",
-            "no": "Borte (med utpassering)"
+            "en": "Away",
+            "no": "Borte"
           }
         },
         {
-          "id": "armed_stay",
+          "id": "armed_perimeter",
           "label": {
-            "en": "Perimeter armed (immediate)",
-            "no": "Skallsikring (umiddelbart)"
+            "en": "Perimeter",
+            "no": "Skallsikring"
           }
         }
       ]
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "placeholder": {
+        "en": "Name (optional)",
+        "no": "Navn (valgfritt)"
+      }
     }
   ]
 }

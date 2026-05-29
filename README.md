@@ -8,13 +8,13 @@ McCallister Guard er ikke enda et passivt alarmsystem. I stedet for å bare tute
 
 ## Funksjoner
 
-- **Fem moduser** — `Hjemme` (deaktivert), `Borte` (full overvåking + Kevin-simulering), `Skallsikring` (kun valgte perimeter-sensorer aktive — typisk når du sover), `Avskrekking` (lys-blink i reaksjonssone — advarselsfase), `Alarm` (full krise — sirene og strobe)
+- **Fem moduser** — `Hjemme` / `disarmed` (deaktivert), `Borte` / `armed` (full overvåking + Kevin-simulering), `Skallsikring` / `armed_perimeter` (kun valgte perimeter-sensorer aktive — typisk når du sover), `Avskrekking` / `deterrence` (lys-blink i reaksjonssone — advarselsfase), `Alarm` / `alarm` (full krise — sirene og strobe)
 - **Skallsikring med sensorvalg** — pek ut nøyaktig hvilke sensorer (ytterdører, vinduer, uteområder) som skal kunne utløse alarm ved Skallsikring; bevegelse innendørs ignoreres
 - **Inngangsforsinkelse (⏱) pr. sensor** — marker hoveddør/bakdør med ⏱ for å gi en `entry_delay`-nedtelling (default 30 s) ved åpning, slik at en autorisert bruker med kodelås/smart-lås rekker å deaktivere systemet før alarmen utløses
 - **Sone-basert avskrekking** — bevegelse i én sone trigger avskrekking i en annen «reaksjonssone» (matrise konfigurerbar per sone), så tyven aldri møter responsen sin der hen er
 - **Konfigurerbar lys-avskrekking** — appen blinker lys i reaksjonssonen med en sakte syklus (PÅ/AV-tid konfigurerbar pr. sone, default 15 sek hver vei). Modus-endringer kan brukes i `mode_changed`-triggeren til å bygge egne Homey-flows
 - **Kevin-modus** — automatisk tilstedeværelses-simulering i Borte-modus (lys av/på i sannsynlig sekvens)
-- **Lys-autorisering** — manuell lysbruk under armert tilstand kan tolkes som «noen er hjemme» og deaktivere alarm
+- **Lys-autorisering** — uautorisert lysbruk under armert tilstand oppdages og slås umiddelbart av; kun app-initierte kommandoer tillates (tyv kan ikke «gjemme seg» ved å skru på lys)
 - **Eskalering** — om avskrekking ikke får tyven til å snu, eskalerer systemet automatisk til Alarm-modus etter konfigurert tid (full sirene, strobe på alle lys)
 - **Falsk-alarm-filter** — flere uavhengige sensor-treff kreves før eskalering starter
 - **Flow-kort** — actions, conditions og triggers (inkl. `mode_changed` og `timestamp`-token) for full integrasjon med Homey-flows (push, SMS, kamera, naboalarmer)
@@ -23,9 +23,16 @@ McCallister Guard er ikke enda et passivt alarmsystem. I stedet for å bare tute
 
 ## Skjermbilder
 
-| Dashbord (modusvalg) | Sone-konfigurasjon | Eventlogg |
-|---|---|---|
-| _kommer_ | _kommer_ | _kommer_ |
+<p align="center">
+  <img src="design/screendumps/IMG_8961.PNG" width="30%" />
+  <img src="design/screendumps/IMG_8962.PNG" width="30%" />
+  <img src="design/screendumps/IMG_8963.PNG" width="30%" />
+</p>
+<p align="center">
+  <img src="design/screendumps/IMG_8964.PNG" width="30%" />
+  <img src="design/screendumps/IMG_8965.PNG" width="30%" />
+  <img src="design/screendumps/IMG_8966.PNG" width="30%" />
+</p>
 
 ## Arkitektur
 
@@ -79,7 +86,7 @@ flowchart TB
   APP -.leser.-> SETTINGS
   DEV -- alarm_motion / alarm_contact --> APP
   APP -- onoff blink --> DEV
-  APP -- alarm_triggered / alarm_stopped / mode_changed / snapshot_taken / health_check_failed --> FLOW
+  APP -- alarm_triggered / alarm_perimeter_triggered / alarm_stopped / alarm_perimeter_stopped / mode_changed / snapshot_taken / health_check_failed --> FLOW
   APP --> NOTIF
   SM --> AS
   DE --> MC
@@ -92,8 +99,8 @@ flowchart TB
 stateDiagram-v2
   [*] --> Hjemme
 
-  Hjemme --> Borte: setMode(armed_away)\n(exit delay)
-  Hjemme --> Skallsikring: setMode(armed_stay)
+  Hjemme --> Borte: setMode(armed)\n(exit delay)
+  Hjemme --> Skallsikring: setMode(armed_perimeter)
   Hjemme --> Avskrekking: testDeterrence()
   Hjemme --> Alarm: testAlarm()
 
@@ -101,8 +108,8 @@ stateDiagram-v2
   Borte --> Avskrekking: sensor utløst\n(entry delay → confirm)
   Borte --> Alarm: testAlarm()
 
-  Skallsikring --> Hjemme: setMode(disarmed)
-  Skallsikring --> Borte: setMode(armed_away)
+  Skallsikring --> Hjemme: setMode(disarmed) [ignoreres utenfra]
+  Skallsikring --> Borte: setMode(armed)
   Skallsikring --> Avskrekking: perimeter-sensor utløst
   Skallsikring --> Alarm: testAlarm()
 
@@ -125,21 +132,21 @@ flowchart TD
   M -- deterrence --> X2[Oppdater reaksjonssone\nuten ny timer]
   M -- alarm --> X3[Ignorer]
   M -- exit_delay aktiv --> X4[Ignorer\nbruker forlater huset]
-  M -- armed_stay --> SS{Perimeter-sensor?}
-  M -- armed_away --> ED1{⏱ entry-delay-markert?}
+  M -- armed_perimeter --> SS{Perimeter-sensor?}
+  M -- armed --> ED1{⏱ entry-delay-markert?}
   SS -- nei --> X5[Ignorer\ninnendørs bevegelse]
   SS -- ja --> ED2{⏱ entry-delay-markert?}
   ED1 -- ja --> DELAY[startEntryDelay\nentry_delay sek]
   ED1 -- nei --> MOTION_AWAY{Sensor type?}
   ED2 -- ja --> DELAY
-  ED2 -- nei --> ENTER_DET_STAY[enterDeterrence\nperimeter]
+  ED2 -- nei --> ENTER_DET_STAY[enterDeterrence\nalarm_perimeter_triggered]
   MOTION_AWAY -- motion --> MOT_DELAY[startEntryDelay\nentry_delay sek]
   MOTION_AWAY -- contact --> CONFIRM[handleConfirmedMotion\nvia false-alarm-filter]
   DELAY --> WAIT{Bruker deaktiverer?}
   MOT_DELAY --> WAIT
   WAIT -- ja --> X6[cancelEntryDelay\ningan alarm]
   WAIT -- nei, timer utløpt --> CONFIRM
-  CONFIRM --> ENTER_DET[enterDeterrence\nmode = deterrence\nblink i reaksjonssone]
+  CONFIRM --> ENTER_DET[enterDeterrence\nmode = deterrence\nalarm_triggered\nblink i reaksjonssone]
   ENTER_DET_STAY --> ENTER_DET
   ENTER_DET --> TIMER{escalation_minutes timer}
   TIMER -- utløpt --> ALARM[enterAlarm\nmode = alarm\nEscalationManager.triggerCrisis]
@@ -179,7 +186,7 @@ sequenceDiagram
     Note over App: Ingen alarm fyres
   else 30 s passerer
     SM->>App: handleConfirmedContact()
-    App->>F: trigger alarm_triggered (alarm_type=entry_delay_timeout)
+    App->>F: trigger alarm_triggered (zone, sensor, mode=armed)
     App->>SM: setMode(deterrence)
   end
 ```
@@ -200,7 +207,7 @@ sequenceDiagram
   Note over App,SM: Sensor utløst ELLER «Test avskrekking» trykket
   App->>SM: setMode(deterrence)
   SM->>App: handleModeChange(deterrence, previous)
-  App->>F: trigger mode_changed (mode_new=deterrence, mode_previous=armed_away)
+  App->>F: trigger mode_changed (mode_new=deterrence, mode_previous=armed)
   App->>DE: handleMotion(zoneId) / runDirect(zoneId)
   DE->>MC: startBlink(reaksjonssone)
   loop blink_on / blink_off pr. sone (default 15 s / 15 s)
@@ -223,7 +230,7 @@ sequenceDiagram
 | `MediaCaster` | Lys-blink i reaksjonssonen med konfigurerbar PÅ/AV-syklus (`blink_on`/`blink_off` pr. sone, default 15 s / 15 s) |
 | `EscalationManager` | Timer fra alarm til full krise + strobe-rutine på alle lys |
 | `FalseAlarmFilter` | Krever (kontakt + bevegelse) eller bevegelse i to soner innen 90 s før eskalering |
-| `LightAuthGuard` | Tolker manuell lysbruk som «noen er hjemme»; deaktivert under aktiv avskrekking så eksterne flows kan styre lys trygt |
+| `LightAuthGuard` | Blokkerer uautorisert lysbruk under armert tilstand (slår av umiddelbart); deaktivert under aktiv avskrekking så eksterne flows kan styre lys trygt |
 | `SimulationEngine` | Kevin-modus: lys-mønstre i Borte-modus på markerte soner |
 | `CameraManager` | Snapshot-loop fra sone-kameraer ved alarm (hopper over soner uten kameraer) |
 | `EventLog` | Strukturert intern hendelseslogg (vises i Event Log-fanen i settings-UI) |
@@ -235,74 +242,78 @@ sequenceDiagram
 
 | Kort | Tokens | Når |
 |---|---|---|
-| `alarm_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Generisk — fyres alltid uansett alarmtype |
-| `alarm_triggered_intrusion` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Kun innendørs innbrudd i Borte-modus |
-| `alarm_triggered_entry_delay` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Kun inngangsforsinkelse utløpt (hoveddør ikke deaktivert) |
-| `alarm_stopped` | `zone`, `sensor`, `reason` | Generisk — fyres alltid uansett alarmtype |
-| `alarm_stopped_intrusion` | `zone`, `sensor`, `reason` | Kun innbruddsalarm (Borte) avsluttet |
-| `alarm_stopped_entry_delay` | `zone`, `sensor`, `reason` | Kun inngangsforsinkelse-alarm avsluttet |
-| `mode_changed` | `mode_new`, `mode_previous` | Når systemet bytter modus — inkl. overgang til `deterrence` og `alarm` |
-| `snapshot_taken` | `zone`, `camera` | Når et kamera tar et snapshot ved alarm |
-| `health_check_failed` | `offline_count` | Når sensorer er offline ved aktivering |
+| `alarm_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Sensor aktiverer alarm i **Borte** (`armed`) — etter entry delay |
+| `alarm_perimeter_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Sensor aktiverer alarm i **Skallsikring** (`armed_perimeter`) — etter entry delay |
+| `alarm_stopped` | `zone`, `sensor`, `reason` | Borte-alarm stoppet (av bruker, deaktivering eller automatisk) |
+| `alarm_perimeter_stopped` | `zone`, `sensor`, `reason` | Skallsikring-alarm stoppet |
+| `mode_changed` | `mode_new`, `mode_previous` | Systemet bytter modus — inkl. overgang til `deterrence` og `alarm` |
+| `snapshot_taken` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`, `snapshot` (image) | Kamera tar snapshot ved alarm |
+| `health_check_failed` | `offline_count` | Sensorer er offline ved aktivering |
 
 ### Conditions
 
 | Kort | Tilstand |
 |---|---|
-| `alarm_active` | Alarm er utløst akkurat nå |
-| `is_armed` | Systemet er i valgt modus |
-| `deterrence_active` | Avskrekking pågår |
+| `alarm_active` | Systemet er i `alarm`-modus (full alarm utløst) |
+| `alarm_perimeter_active` | Systemet er i `armed_perimeter`-modus (Skallsikring aktiv) |
+| `get_mode` | Systemet er i valgt modus — dropdown med alle 5 modi |
+| `alarm_triggered_from` | Pågående alarm/avskrekking ble utløst fra valgt modus (`armed` / `armed_perimeter`) |
 
 ### Actions
 
 | Kort | Effekt |
 |---|---|
-| `set_mode` | Sett modus til Hjemme / Borte / Skallsikring |
+| `set_mode` | Sett modus til Hjemme / Borte / Skallsikring (med valgfritt navn — vises i Timeline ved deaktivering) |
 | `trigger_deterrence` | Test avskrekking direkte i valgt sone |
-| `trigger_alarm` | Test full alarm (eskalering) |
+| `trigger_alarm` | Test full alarm (eskalering, stopp etter 15 s) |
+| `bypass_perimeter` | Deaktiver perimeter-sensorene midlertidig (antall minutter) |
+| `set_camera_motion` | Aktiver / deaktiver bevegelsesutløst kamera-opptak |
 
 
-## Alarmtyper — forgren flow per alarmklasse
+## Alarmtyper — to trigger-kort, én condition for forgrening
 
-Velg rett trigger-kort direkte i flow-editoren:
-
-| Trigger-kort | Scenario |
+| Situasjon | Trigger-kort å bruke |
 |---|---|
-| **Skallsikring-brudd oppdaget** | Dør/vindu/perimeter-sensor åpnet i Skallsikring |
-| **Innbrudd oppdaget (Borte)** | Innendørs bevegelse/kontakt i Borte-modus |
-| **Inngangsforsinkelse utløpt** | ⏱-merket hoveddør ikke deaktivert i tide |
+| Dør/vindu/sensor åpnet i **Skallsikring** | `alarm_perimeter_triggered` |
+| Innendørs bevegelse/kontakt i **Borte** | `alarm_triggered` |
+| Under aktiv `alarm`- eller `deterrence`-fase — differensier reaksjon | `alarm_triggered_from` (condition) |
 
-### Typisk reaksjon per alarmtype
+### Typisk reaksjon per kilde
 
-| Alarmtype | Når | Typisk flow-reaksjon |
-|---|---|---|
-| `perimeter` | Dør/vindu åpnet eller bevegelse på perimeter-sensor i **Skallsikring** | Lokal varsling (lyd i gangen, blink ute), varsle kun deg — du er antakelig hjemme |
-| `intrusion` | Bevegelse/kontakt i **Borte** etter false-alarm-bekreftelse | Full push til alle, kamera-snapshot, kraftig avskrekking |
-| `entry_delay_timeout` | Hoveddør (Borte) ikke deaktivert innen nedtellingen | Push «Var det deg? Deaktiver nå», deretter full eskalering |
+| Kilde | Typisk flow-reaksjon |
+|---|---|
+| `alarm_perimeter_triggered` | Lokal varsling (lyd i gangen, blink ute), push kun til deg — du er antakelig hjemme og sover |
+| `alarm_triggered` | Full push til alle i husstanden, kamera-snapshot, kraftig avskrekking, ring nødkontakt |
+| Under `alarm` + condition `alarm_triggered_from = armed_perimeter` | Mild eskalering — vekk beboerne, ingen politimelding |
+| Under `alarm` + condition `alarm_triggered_from = armed` | Full eskalering — sirene, politimelding, push med høyest prioritet |
 
 ### Eksempel-flows
 
 ```
-NÅR  Skallsikring-brudd oppdaget          ← dedikert trigger-kort
+NÅR  Skallsikring-brudd oppdaget (alarm_perimeter_triggered)
 SÅ   Push til DEG: «Noen ved [[sensor]] (sone: [[zone]])»
      Skru på alle lys i 1. etasje
-     Spill av url_intruder_voice på gang-høyttaler
+     Spill bjeffende hund på gang-høyttaler
 
-NÅR  Innbrudd oppdaget (Borte)             ← dedikert trigger-kort
+NÅR  Alarm aktivert (alarm_triggered — Borte-modus)
 SÅ   Push til ALLE i husstanden
      Ta kamera-snapshot
      Start sirene + blink i hele huset
+     Ring nødkontakt via IFTTT/SMS
 
-NÅR  Alarm aktivert                          ← mode_changed (mode_new = alarm)
-SÅ   Ring nødkontakt via IFTTT/SMS
-     Send push med høyest prioritet til alle
+NÅR  Modus endret (mode_changed, mode_new = alarm)
+OG   Alarm ble utløst fra [Borte (armed)]   ← alarm_triggered_from condition
+SÅ   Send SMS til politiet / nødkontakt
+
+NÅR  Modus endret (mode_changed, mode_new = alarm)
+OG   Alarm ble utløst fra [Skallsikring]    ← alarm_triggered_from condition
+SÅ   Vekk beboerne (intern sirene) — ingen ekstern varsling
 ```
 
 
 ## Sett opp flows basert på modus-endringer
 
-Systemet har fem modi: `disarmed`, `armed_away`, `armed_stay`, `deterrence`, `alarm`. Overganger mellom disse
-fyrer alltid `mode_changed`-triggeren med `mode_new` og `mode_previous` som tokens.
+Systemet har fem modi: `disarmed` (Hjemme), `armed` (Borte), `armed_perimeter` (Skallsikring), `deterrence` (Avskrekking), `alarm` (Alarm utløst). Overganger mellom disse fyrer alltid `mode_changed`-triggeren med `mode_new` og `mode_previous` som tokens.
 
 ### Generelt mønster
 
@@ -340,10 +351,11 @@ SÅ   Google Sheet → Legg til rad: [mode_new], [mode_previous], [tidspunkt]
 
 ### Test og feilsøking
 
-- **«Test avskrekking»-knappen** i Soneoversikten setter systemet i `deterrence`-modus direkte — bruk den for å
-  verifisere at flows som lytter på `mode_changed` (mode_new = deterrence) fungerer.
+- **«Test avskrekking»-knappen** i Soneoversikten setter systemet i `deterrence`-modus direkte — bruk den for å verifisere at flows som lytter på `mode_changed` (mode_new = deterrence) fungerer.
 - **«Test alarm»-knappen** i Soneoversikten setter systemet i `alarm`-modus og stopper etter 15 sekunder.
-- I **Event Log** ser du alltid en linje `Modus endret: X → Y` ved hvert modus-bytte.
+- I **Event Log** ser du alltid aktuell modus-linje ved hvert modus-bytte.
+- Bruk `get_mode`-condition for å sjekke aktiv modus i flows uten å lytte på `mode_changed`.
+- Bruk `alarm_triggered_from`-condition under `alarm`- eller `deterrence`-fasen for å skille mellom «vi var hjemme» og «vi var borte».
 
 
 ## Installasjon
@@ -376,9 +388,13 @@ homey app install
    inngangsforsinkelse. Når en slik dør åpnes (i Borte eller Skallsikring), starter en nedtelling på
    `entry_delay` sekunder (default 30) før alarmen utløses — slik at en autorisert bruker som kommer inn med
    kodelås/smart-lås rekker å deaktivere systemet uten å sette i gang sirenen. Anbefales for hoveddør og
-   bakdør med kodelås. Kombiner gjerne med en flow som automatisk setter modus til Hjemme når smartlåsen
+   bakdør med kodelås. Kombiner gjerne med en flow som automatisk sender `set_mode = Hjemme` når smartlåsen
    rapporterer autorisert opplåsing — da utløses ingen alarm i det hele tatt, og inngangsforsinkelsen er
    fallback hvis flowen feiler.
+
+   > **Merk:** `set_mode = Hjemme` ignoreres hvis systemet er i **Skallsikring**. Noen som kommer hjem sent
+   > deaktiverer ikke nattmodus automatisk — endre modus manuelt på dashbordet om nødvendig.
+   > Sendes `set_mode = Hjemme` mens systemet er i **Alarm**, stoppes alarmen og systemet deaktiveres helt.
 6. **Lys-avskrekking pr. sone:** appen blinker lys i reaksjonssonen med en sakte PÅ/AV-syklus (default
    15 sek hver vei, justerbart pr. sone under «Lys på (sek)» / «Lys av (sek)»). Lys-vakta (`LightAuthGuard`)
    er deaktivert mens avskrekking pågår, så en ekstern flow kan trygt styre lys i sonen samtidig. Bruk
@@ -466,7 +482,7 @@ Pivoten ble løsning A: **systemet bytter modus til `deterrence` når avskrekkin
 
 Innebygd lys-avskrekking (`MediaCaster.startBlink` — sakte PÅ/AV-syklus på lys-enheter i reaksjonssonen, default 15 sek hver vei, konfigurerbart pr. sone) **kjører alltid** når avskrekking starter. Dette gir et fornuftig system out-of-the-box og sikrer at brukeren får visuell avskrekking selv om Chromecast-en er offline eller flowen er deaktivert.
 
-Mens avskrekking pågår, deaktiveres lys-vakta (`LightAuthGuard`) for reaksjonssonen, slik at en ekstern flow trygt kan styre lys i sonen parallelt med blinkingen uten å trigge «manuell lysbruk = noen er hjemme»-logikken.
+Mens avskrekking pågår, deaktiveres lys-vakta (`LightAuthGuard`) for reaksjonssonen, slik at en ekstern flow trygt kan styre lys i sonen parallelt med blinkingen uten å bli slått av igjen.
 
 ### Konsekvenser for fremtidige Homey-apper
 

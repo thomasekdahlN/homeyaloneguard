@@ -11,14 +11,26 @@
     {
       "name": "mode_new",
       "type": "string",
-      "title": { "en": "New mode", "no": "Ny modus" },
-      "example": { "en": "armed_away", "no": "armed_away" }
+      "title": {
+        "en": "New mode",
+        "no": "Ny modus"
+      },
+      "example": {
+        "en": "armed",
+        "no": "armed"
+      }
     },
     {
       "name": "mode_previous",
       "type": "string",
-      "title": { "en": "Previous mode", "no": "Forrige modus" },
-      "example": { "en": "disarmed", "no": "disarmed" }
+      "title": {
+        "en": "Previous mode",
+        "no": "Forrige modus"
+      },
+      "example": {
+        "en": "disarmed",
+        "no": "disarmed"
+      }
     }
   ]
 }

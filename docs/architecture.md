@@ -117,8 +117,8 @@ Eksempel `.homeycompose/flow/actions/set_mode.json`:
       "type": "dropdown",
       "values": [
         { "id": "disarmed",   "label": { "no": "Deaktivert",       "en": "Disarmed" } },
-        { "id": "armed_away", "label": { "no": "Borte (Alarm På)", "en": "Armed Away" } },
-        { "id": "armed_stay", "label": { "no": "Nattmodus",         "en": "Armed Stay" } }
+        { "id": "armed",            "label": { "no": "Borte",        "en": "Away (armed)" } },
+        { "id": "armed_perimeter", "label": { "no": "Skallsikring", "en": "Perimeter armed" } }
       ]
     }
   ]
@@ -146,37 +146,43 @@ Eksempel `.homeycompose/flow/triggers/deterrence_started.json`:
 McCallister Guard bruker en strikt tilstandsmaskin med fem modi. Alle overganger valideres mot `VALID_TRANSITIONS`-tabellen i `lib/types.ts`.
 
 ```
-Mode = 'disarmed' | 'armed_away' | 'armed_stay' | 'deterrence' | 'alarm'
+Mode = 'disarmed' | 'armed' | 'armed_perimeter' | 'deterrence' | 'alarm'
 ```
 
 **Tillatte overganger:**
 
 ```
-disarmed    → armed_away, armed_stay, deterrence*, alarm*
-armed_away  → disarmed, deterrence, alarm
-armed_stay  → disarmed, armed_away, deterrence, alarm
-deterrence  → alarm, armed_stay, armed_away, disarmed
-alarm       → armed_stay, armed_away, disarmed
+disarmed        → armed, armed_perimeter, deterrence*, alarm*
+armed           → disarmed, deterrence, alarm
+armed_perimeter → disarmed*, armed, deterrence, alarm
+deterrence      → alarm, armed_perimeter, armed, disarmed
+alarm           → armed_perimeter, armed, disarmed
 
-* = kun fra test-knapp/flow, ikke fra bruker-dashboard
+* armed_perimeter → disarmed ignoreres fra eksterne flows (smart-lås-guard).
+  Kun scheduler med force=true kan deaktivere Skallsikring automatisk.
+* deterrence/alarm fra disarmed er kun tilgjengelig fra test-knapp/flow.
 ```
 
 **Normalt sensorforløp:**
 ```
-armed_stay / armed_away
+armed / armed_perimeter
     │ (sensor utløses)
     ▼
 deterrence  ──── reaksjonssone-blink (DeterrenceEngine)
+    │           ──── alarm_triggered / alarm_perimeter_triggered fyres
     │ (escalation_minutes timer)
     ▼
 alarm       ──── full-hus strobe + sirener (EscalationManager)
     │ (bruker trykker Stopp, eller stopAlarm())
     ▼
-armed_stay / armed_away  (forrige modus gjenopprettes automatisk)
+armed / armed_perimeter  (previousArmedMode gjenopprettes automatisk)
 ```
 
 **Stopp alarm:**
 `stopAlarm()` i `app.ts` lagrer `previousArmedMode` når systemet går inn i `deterrence`, og gjenoppretter denne ved stopp — uten å gå via `disarmed`.
+
+**Kildemodus-sporing:**
+`alarm_triggered_from`-condition leser `previousArmedMode` og lar flows reagere ulikt avhengig av om alarmen ble utløst fra `armed` (Borte) eller `armed_perimeter` (Skallsikring).
 
 ### 4.1. Hovedmotoren: `app.ts`
 

@@ -51,15 +51,15 @@ export default class StateMachine {
     const wasExitDelay = this.isExitDelayActive();
     this.clearTimers();
 
-    if (next === 'armed_away' && exitDelaySeconds && exitDelaySeconds > 0) {
+    if (next === 'armed' && exitDelaySeconds && exitDelaySeconds > 0) {
       this.log.add('info', `Aktiverer Borte-modus om ${exitDelaySeconds}s (Exit Delay).`);
-      this.exitDelayTarget = 'armed_away';
+      this.exitDelayTarget = 'armed';
       this.exitDelayEndsAt = Date.now() + exitDelaySeconds * 1000;
       this.exitTimer = this.homey.setTimeout(() => {
         this.exitTimer = null;
         this.exitDelayEndsAt = null;
         this.exitDelayTarget = null;
-        this.applyMode('armed_away');
+        this.applyMode('armed');
       }, exitDelaySeconds * 1000);
       return;
     }
@@ -116,7 +116,7 @@ export default class StateMachine {
     this.modeChangedAt = Date.now();
     this.homey.settings.set(SETTINGS_KEYS.MODE, next);
     this.homey.settings.set(SETTINGS_KEYS.MODE_CHANGED_AT, this.modeChangedAt);
-    this.log.add('info', `Modus endret: ${previous} → ${next}.`);
+    this.log.add('info', `Modus: ${next}.`);
     for (const listener of this.listeners) {
       try {
         listener(next, previous);

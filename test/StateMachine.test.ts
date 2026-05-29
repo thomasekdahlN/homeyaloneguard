@@ -26,36 +26,36 @@ describe('StateMachine', () => {
   });
 
   it('laster modus fra settings', () => {
-    homey.settings._store[SETTINGS_KEYS.MODE] = 'armed_stay';
+    homey.settings._store[SETTINGS_KEYS.MODE] = 'armed_perimeter';
     const sm = new StateMachine(homey as never, log);
-    expect(sm.getMode()).toBe('armed_stay');
+    expect(sm.getMode()).toBe('armed_perimeter');
   });
 
   it('endrer modus umiddelbart uten exit-delay', async () => {
     const sm = new StateMachine(homey as never, log);
-    await sm.setMode('armed_stay');
-    expect(sm.getMode()).toBe('armed_stay');
-    expect(homey.settings._store[SETTINGS_KEYS.MODE]).toBe('armed_stay');
+    await sm.setMode('armed_perimeter');
+    expect(sm.getMode()).toBe('armed_perimeter');
+    expect(homey.settings._store[SETTINGS_KEYS.MODE]).toBe('armed_perimeter');
   });
 
   it('lagrer og leser tidspunkt for siste modus-endring', async () => {
     vi.setSystemTime(new Date('2025-06-01T12:00:00Z'));
     const sm = new StateMachine(homey as never, log);
-    await sm.setMode('armed_stay');
+    await sm.setMode('armed_perimeter');
     const ts = sm.getModeChangedAt();
     expect(ts).toBe(new Date('2025-06-01T12:00:00Z').getTime());
     expect(homey.settings._store[SETTINGS_KEYS.MODE_CHANGED_AT]).toBe(ts);
   });
 
-  it('utsetter armed_away med exit-delay', async () => {
+  it('utsetter armed med exit-delay', async () => {
     const sm = new StateMachine(homey as never, log);
-    await sm.setMode('armed_away', 30);
+    await sm.setMode('armed', 30);
 
     expect(sm.getMode()).toBe('disarmed');
     expect(sm.isExitDelayActive()).toBe(true);
 
     vi.advanceTimersByTime(30_000);
-    expect(sm.getMode()).toBe('armed_away');
+    expect(sm.getMode()).toBe('armed');
     expect(sm.isExitDelayActive()).toBe(false);
   });
 
@@ -64,8 +64,8 @@ describe('StateMachine', () => {
     const listener = vi.fn();
     sm.onModeChange(listener);
 
-    await sm.setMode('armed_stay');
-    expect(listener).toHaveBeenCalledWith('armed_stay', 'disarmed');
+    await sm.setMode('armed_perimeter');
+    expect(listener).toHaveBeenCalledWith('armed_perimeter', 'disarmed');
   });
 
   it('ignorerer setMode når modus er uendret', async () => {
@@ -119,7 +119,7 @@ describe('StateMachine', () => {
     const cb = vi.fn();
     sm.startEntryDelay(20, cb);
 
-    await sm.setMode('armed_stay');
+    await sm.setMode('armed_perimeter');
     expect(sm.isEntryDelayActive()).toBe(false);
 
     vi.advanceTimersByTime(20_000);
@@ -133,56 +133,56 @@ describe('StateMachine', () => {
     sm.onModeChange(broken);
     sm.onModeChange(ok);
 
-    await sm.setMode('armed_stay');
+    await sm.setMode('armed_perimeter');
     expect(ok).toHaveBeenCalledTimes(1);
   });
 
   describe('ulovlige modusoverganger', () => {
-    it('kaster feil ved armed_away → armed_stay', async () => {
+    it('kaster feil ved armed → armed_perimeter', async () => {
       const sm = new StateMachine(homey as never, log);
-      await sm.setMode('armed_away');
-      await expect(sm.setMode('armed_stay')).rejects.toThrow('Ugyldig modusovergang');
-      expect(sm.getMode()).toBe('armed_away');
+      await sm.setMode('armed');
+      await expect(sm.setMode('armed_perimeter')).rejects.toThrow('Ugyldig modusovergang');
+      expect(sm.getMode()).toBe('armed');
     });
 
-    it('tillater armed_stay → armed_away', async () => {
+    it('tillater armed_perimeter → armed', async () => {
       const sm = new StateMachine(homey as never, log);
-      await sm.setMode('armed_stay');
-      await sm.setMode('armed_away');
-      expect(sm.getMode()).toBe('armed_away');
+      await sm.setMode('armed_perimeter');
+      await sm.setMode('armed');
+      expect(sm.getMode()).toBe('armed');
     });
 
     it('modus er uendret etter avvist overgang', async () => {
       const sm = new StateMachine(homey as never, log);
       const listener = vi.fn();
       sm.onModeChange(listener);
-      await sm.setMode('armed_away');
+      await sm.setMode('armed');
       listener.mockClear();
 
-      await sm.setMode('armed_stay').catch(() => { /* expected */ });
-      expect(sm.getMode()).toBe('armed_away');
+      await sm.setMode('armed_perimeter').catch(() => { /* expected */ });
+      expect(sm.getMode()).toBe('armed');
       expect(listener).not.toHaveBeenCalled();
     });
 
-    it('tillater disarmed → armed_away → armed_stay → armed_away → disarmed', async () => {
+    it('tillater disarmed → armed → disarmed → armed_perimeter → armed → disarmed', async () => {
       const sm = new StateMachine(homey as never, log);
-      await sm.setMode('armed_away');
-      expect(sm.getMode()).toBe('armed_away');
+      await sm.setMode('armed');
+      expect(sm.getMode()).toBe('armed');
       await sm.setMode('disarmed');
       expect(sm.getMode()).toBe('disarmed');
-      await sm.setMode('armed_stay');
-      expect(sm.getMode()).toBe('armed_stay');
-      await sm.setMode('armed_away');
-      expect(sm.getMode()).toBe('armed_away');
+      await sm.setMode('armed_perimeter');
+      expect(sm.getMode()).toBe('armed_perimeter');
+      await sm.setMode('armed');
+      expect(sm.getMode()).toBe('armed');
       await sm.setMode('disarmed');
       expect(sm.getMode()).toBe('disarmed');
     });
   });
 
   describe('deterrence og alarm-modus', () => {
-    it('tillater armed_stay → deterrence → alarm → disarmed', async () => {
+    it('tillater armed_perimeter → deterrence → alarm → disarmed', async () => {
       const sm = new StateMachine(homey as never, log);
-      await sm.setMode('armed_stay');
+      await sm.setMode('armed_perimeter');
       await sm.setMode('deterrence');
       expect(sm.getMode()).toBe('deterrence');
       await sm.setMode('alarm');
@@ -191,22 +191,22 @@ describe('StateMachine', () => {
       expect(sm.getMode()).toBe('disarmed');
     });
 
-    it('tillater armed_away → deterrence → alarm → armed_away', async () => {
+    it('tillater armed → deterrence → alarm → armed', async () => {
       const sm = new StateMachine(homey as never, log);
-      await sm.setMode('armed_away');
+      await sm.setMode('armed');
       vi.advanceTimersByTime(0); // flush any pending timers
       await sm.setMode('deterrence');
       await sm.setMode('alarm');
-      await sm.setMode('armed_away');
-      expect(sm.getMode()).toBe('armed_away');
+      await sm.setMode('armed');
+      expect(sm.getMode()).toBe('armed');
     });
 
-    it('tillater deterrence → armed_stay (stopp alarm uten å gå via disarmed)', async () => {
+    it('tillater deterrence → armed_perimeter (stopp alarm uten å gå via disarmed)', async () => {
       const sm = new StateMachine(homey as never, log);
-      await sm.setMode('armed_stay');
+      await sm.setMode('armed_perimeter');
       await sm.setMode('deterrence');
-      await sm.setMode('armed_stay');
-      expect(sm.getMode()).toBe('armed_stay');
+      await sm.setMode('armed_perimeter');
+      expect(sm.getMode()).toBe('armed_perimeter');
     });
 
     it('tillater disarmed → deterrence (test-modus)', async () => {
@@ -232,11 +232,11 @@ describe('StateMachine', () => {
       const sm = new StateMachine(homey as never, log);
       const listener = vi.fn();
       sm.onModeChange(listener);
-      await sm.setMode('armed_stay');
+      await sm.setMode('armed_perimeter');
       await sm.setMode('deterrence');
       await sm.setMode('alarm');
-      expect(listener).toHaveBeenNthCalledWith(1, 'armed_stay', 'disarmed');
-      expect(listener).toHaveBeenNthCalledWith(2, 'deterrence', 'armed_stay');
+      expect(listener).toHaveBeenNthCalledWith(1, 'armed_perimeter', 'disarmed');
+      expect(listener).toHaveBeenNthCalledWith(2, 'deterrence', 'armed_perimeter');
       expect(listener).toHaveBeenNthCalledWith(3, 'alarm', 'deterrence');
     });
   });

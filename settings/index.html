@@ -50,12 +50,12 @@
       background: #1A531A;
     }
 
-    .mode-btn.armed_away {
+    .mode-btn.armed {
       background: #F2A900;
       color: #102A43;
     }
 
-    .mode-btn.armed_stay {
+    .mode-btn.armed_perimeter {
       background: #102A43;
     }
 
@@ -647,12 +647,12 @@
       transition: border-left-color 0.3s, background 0.3s;
     }
 
-    .status-card[data-mode="armed_away"] {
+    .status-card[data-mode="armed"] {
       border-left-color: #F2A900;
       background: #fdf8ed;
     }
 
-    .status-card[data-mode="armed_stay"] {
+    .status-card[data-mode="armed_perimeter"] {
       border-left-color: #102A43;
       background: #eef2f7;
     }
@@ -729,12 +729,12 @@
       color: #fff;
     }
 
-    .mode-seg .mode-btn.armed_away:not(.inactive) {
+    .mode-seg .mode-btn.armed:not(.inactive) {
       background: #F2A900;
       color: #102A43;
     }
 
-    .mode-seg .mode-btn.armed_stay:not(.inactive) {
+    .mode-seg .mode-btn.armed_perimeter:not(.inactive) {
       background: #102A43;
       color: #fff;
     }
@@ -840,8 +840,8 @@
       <div class="dash-section-label">Modus</div>
       <div class="mode-seg">
         <button class="mode-btn disarmed" data-mode="disarmed">Hjemme</button>
-        <button class="mode-btn armed_away" data-mode="armed_away">Borte</button>
-        <button class="mode-btn armed_stay" data-mode="armed_stay">Skallsikring</button>
+        <button class="mode-btn armed" data-mode="armed">Borte</button>
+        <button class="mode-btn armed_perimeter" data-mode="armed_perimeter">Skallsikring</button>
       </div>
     </div>
 
@@ -993,8 +993,22 @@
         sette en Hue-scene) parallelt med blinkingen.</p>
 
       <h3>Stopp alarm</h3>
-      <p>«Stopp alarm»-knappen avbryter pågående eskalering, sirener og avskrekking — uten å endre modus. Bruk den
-        ved falsk alarm når du fortsatt vil at systemet skal være armert.</p>
+      <p>«Stopp alarm»-knappen avbryter pågående eskalering, sirener og avskrekking og returnerer til forrige armerte
+        modus (Borte eller Skallsikring). Bruk den ved falsk alarm når du fortsatt vil at systemet skal være armert.</p>
+
+      <h3>Smart-lås og automatisk deaktivering</h3>
+      <p>Bruk flow-kortet <code>set_mode</code> med verdien <strong>Hjemme</strong> i en flow som trigges av
+        smart-lås-opplåsing for å deaktivere alarmen automatisk. To viktige regler gjelder:</p>
+      <ul>
+        <li><strong>Skallsikring forblir aktiv</strong> — hvis systemet er i Skallsikring og en flow sender
+          <code>set_mode = Hjemme</code>, ignoreres kommandoen. Noen som kommer sent hjem deaktiverer
+          <em>ikke</em> nattmodus automatisk. Bruk «Stopp alarm»-knappen eller endre modus manuelt.
+        </li>
+        <li><strong>Alarm → Hjemme</strong> — hvis systemet er i full Alarm og en flow sender
+          <code>set_mode = Hjemme</code>, stoppes alarmen og systemet deaktiveres helt (inklusive
+          <code>alarm_stopped</code>-trigger).
+        </li>
+      </ul>
 
       <h3>Aktivering</h3>
       <p>Alarmen aktiveres <strong>kun</strong> manuelt via knappene på Dashboard, eller via flow-kort
@@ -1118,8 +1132,8 @@
       }
 
       function modeLabel(mode) {
-        if (mode === 'armed_away') return 'Borte';
-        if (mode === 'armed_stay') return 'Skallsikring';
+        if (mode === 'armed') return 'Borte';
+        if (mode === 'armed_perimeter') return 'Skallsikring';
         if (mode === 'deterrence') return 'Avskrekking aktiv';
         if (mode === 'alarm') return 'ALARM';
         return 'Hjemme';
@@ -1141,12 +1155,12 @@
         let modeText = modeLabel(s.mode);
         if (s.exitDelayActive && s.exitDelayEndsAt) {
           const rem = Math.max(0, Math.ceil((s.exitDelayEndsAt - Date.now()) / 1000));
-          modeText = `${modeLabel(s.mode)} → ${modeLabel(s.exitDelayTarget || 'armed_away')} (aktiveres om ${rem}s)`;
+          modeText = `${modeLabel(s.mode)} → ${modeLabel(s.exitDelayTarget || 'armed')} (aktiveres om ${rem}s)`;
         }
         el.innerHTML = `<div class="mode-label">Modus: ${modeText}</div>`
           + `<div class="meta">Sist endret: ${fmtTs(s.modeChangedAt)}</div>`
           + (extras.length ? `<div class="meta">${extras.join(' · ')}</div>` : '');
-        const pendingMode = s.exitDelayActive ? (s.exitDelayTarget || 'armed_away') : null;
+        const pendingMode = s.exitDelayActive ? (s.exitDelayTarget || 'armed') : null;
         document.querySelectorAll('.mode-btn[data-mode]').forEach((b) => {
           const isActive = b.dataset.mode === s.mode;
           const isPending = b.dataset.mode === pendingMode;
@@ -1345,17 +1359,17 @@
           + `<input id="set_${k}" type="${t}" value="${esc(settings[k] ?? '')}">`).join('');
 
         // Skallsikring auto-planlegger (checkbox + two time pickers on one row)
-        const autoChecked = settings.armed_stay_auto ? 'checked' : '';
-        const onVal = esc(settings.armed_stay_on ?? '22:00');
-        const offVal = esc(settings.armed_stay_off ?? '06:00');
+        const autoChecked = settings.armed_perimeter_auto ? 'checked' : '';
+        const onVal = esc(settings.armed_perimeter_on ?? '22:00');
+        const offVal = esc(settings.armed_perimeter_off ?? '06:00');
         html += `<label>Automatisk skallsikring</label>`
           + `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">`
           + `<label style="display:flex;align-items:center;gap:6px;font-weight:normal;">`
-          + `<input type="checkbox" id="set_armed_stay_auto" ${autoChecked}> Aktiver tidsplan</label>`
-          + `<label for="set_armed_stay_on" style="font-weight:normal;">Fra</label>`
-          + `<input id="set_armed_stay_on" type="time" value="${onVal}" style="width:110px;">`
-          + `<label for="set_armed_stay_off" style="font-weight:normal;">Til</label>`
-          + `<input id="set_armed_stay_off" type="time" value="${offVal}" style="width:110px;">`
+          + `<input type="checkbox" id="set_armed_perimeter_auto" ${autoChecked}> Aktiver tidsplan</label>`
+          + `<label for="set_armed_perimeter_on" style="font-weight:normal;">Fra</label>`
+          + `<input id="set_armed_perimeter_on" type="time" value="${onVal}" style="width:110px;">`
+          + `<label for="set_armed_perimeter_off" style="font-weight:normal;">Til</label>`
+          + `<input id="set_armed_perimeter_off" type="time" value="${offVal}" style="width:110px;">`
           + `</div>`;
 
         $('settings-grid').innerHTML = html;
@@ -1455,10 +1469,10 @@
       });
       $('btn-save').addEventListener('click', async () => {
         const payload = {};
-        const timeKeys = new Set(['bedtime', 'armed_stay_on', 'armed_stay_off']);
-        ['bedtime', 'sunset_offset', 'random_min', 'random_max', 'deterrence_delay', 'exit_delay', 'entry_delay', 'escalation_minutes', 'alarm_blink_on', 'alarm_blink_off', 'snapshot_max_count', 'camera_alarm_burst', 'camera_motion_burst', 'armed_stay_on', 'armed_stay_off']
+        const timeKeys = new Set(['bedtime', 'armed_perimeter_on', 'armed_perimeter_off']);
+        ['bedtime', 'sunset_offset', 'random_min', 'random_max', 'deterrence_delay', 'exit_delay', 'entry_delay', 'escalation_minutes', 'alarm_blink_on', 'alarm_blink_off', 'snapshot_max_count', 'camera_alarm_burst', 'camera_motion_burst', 'armed_perimeter_on', 'armed_perimeter_off']
           .forEach((k) => { const v = $('set_' + k).value; payload[k] = timeKeys.has(k) ? v : Number(v); });
-        payload.armed_stay_auto = $('set_armed_stay_auto').checked;
+        payload.armed_perimeter_auto = $('set_armed_perimeter_auto').checked;
         await saveSettings(payload, $('btn-save'), 'saved-toast');
       });
       $('btn-save-zones').addEventListener('click', async () => {

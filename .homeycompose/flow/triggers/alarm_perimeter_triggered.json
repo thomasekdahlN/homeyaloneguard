@@ -1,11 +1,11 @@
 {
   "title": {
-    "en": "Alarm triggered",
-    "no": "Alarm utløst"
+    "en": "Perimeter breach detected",
+    "no": "Skallsikringsbrudd oppdaget"
   },
   "hint": {
-    "en": "Fires when a sensor trips the alarm while in Away (armed) mode. After the entry delay expires, the alarm escalates. Use alarm_perimeter_triggered for perimeter (Skallsikring) breaches.",
-    "no": "Utløses når en sensor aktiverer alarmen i Borte-modus (armed). Etter inngangsforsinkelsen eskalerer alarmen. Bruk alarm_perimeter_triggered for skallsikringsbrudd."
+    "en": "Fires when a sensor trips the alarm while in Perimeter (armed_perimeter) mode. After the entry delay expires, the alarm escalates. Use alarm_triggered for Away (armed) mode breaches.",
+    "no": "Utløses når en sensor aktiverer alarmen i Skallsikringsmodus (armed_perimeter). Etter inngangsforsinkelsen eskalerer alarmen. Bruk alarm_triggered for Borte-modusbrudd."
   },
   "tokens": [
     {
@@ -16,8 +16,8 @@
         "no": "Sone"
       },
       "example": {
-        "en": "Living room",
-        "no": "Stua"
+        "en": "Hallway",
+        "no": "Gang"
       }
     },
     {
@@ -28,8 +28,8 @@
         "no": "Sensor"
       },
       "example": {
-        "en": "Motion sensor (hallway)",
-        "no": "Bevegelsessensor (gang)"
+        "en": "Front door",
+        "no": "Hoveddør"
       }
     },
     {
@@ -40,8 +40,8 @@
         "no": "Sensortype"
       },
       "example": {
-        "en": "motion",
-        "no": "bevegelse"
+        "en": "contact",
+        "no": "kontakt"
       }
     },
     {
@@ -52,8 +52,8 @@
         "no": "Aktiv modus"
       },
       "example": {
-        "en": "armed",
-        "no": "armed"
+        "en": "armed_perimeter",
+        "no": "armed_perimeter"
       }
     },
     {

@@ -1,6 +1,6 @@
 'use strict';
 
-export type Mode = 'disarmed' | 'armed_away' | 'armed_stay' | 'deterrence' | 'alarm';
+export type Mode = 'disarmed' | 'armed' | 'armed_perimeter' | 'deterrence' | 'alarm';
 
 export type AlarmType = 'perimeter' | 'intrusion' | 'entry_delay_timeout';
 
@@ -50,12 +50,12 @@ export interface GuardSettings {
   camera_motion_enabled: boolean;
   /** Maximum number of snapshots to retain per category (alarm / motion). Oldest are deleted first. Default: 250. */
   snapshot_max_count: number;
-  /** Whether armed_stay should activate and deactivate automatically on a daily schedule. Default: false. */
-  armed_stay_auto: boolean;
-  /** Time to automatically enable armed_stay (HH:MM, 24h). Default: '22:00'. */
-  armed_stay_on: string;
-  /** Time to automatically disable armed_stay (HH:MM, 24h). Default: '06:00'. */
-  armed_stay_off: string;
+  /** Whether armed_perimeter should activate and deactivate automatically on a daily schedule. Default: false. */
+  armed_perimeter_auto: boolean;
+  /** Time to automatically enable armed_perimeter (HH:MM, 24h). Default: '22:00'. */
+  armed_perimeter_on: string;
+  /** Time to automatically disable armed_perimeter (HH:MM, 24h). Default: '06:00'. */
+  armed_perimeter_off: string;
   /**
    * Per-camera manual snapshot URL override.
    * Key = device ID, value = full HTTP URL to a JPEG snapshot endpoint.
@@ -108,9 +108,9 @@ export const DEFAULT_SETTINGS: GuardSettings = {
   camera_motion_cams: {},
   camera_motion_enabled: true,
   snapshot_max_count: SNAPSHOT_MAX_COUNT_DEFAULT,
-  armed_stay_auto: false,
-  armed_stay_on: '22:00',
-  armed_stay_off: '06:00',
+  armed_perimeter_auto: false,
+  armed_perimeter_on: '22:00',
+  armed_perimeter_off: '06:00',
   camera_snapshot_urls: {},
 };
 
@@ -118,25 +118,25 @@ export const DEFAULT_SETTINGS: GuardSettings = {
  * Allowed mode transitions.
  *
  * User-initiated (dashboard / flow):
- *   disarmed   → armed_away | armed_stay
- *   armed_away → disarmed  (must disarm before switching to armed_stay)
- *   armed_stay → disarmed | armed_away
+ *   disarmed        → armed | armed_perimeter
+ *   armed           → disarmed  (must disarm before switching to armed_perimeter)
+ *   armed_perimeter → disarmed | armed
  *
  * System-initiated (sensor trigger → deterrence → alarm):
- *   armed_stay | armed_away → deterrence  (sensor triggers deterrence mode)
+ *   armed_perimeter | armed → deterrence  (sensor triggers deterrence mode)
  *   deterrence              → alarm       (escalation timer fires)
- *   deterrence | alarm      → armed_stay | armed_away | disarmed
+ *   deterrence | alarm      → armed_perimeter | armed | disarmed
  *                             (stopAlarm returns to previous armed state)
  *
  * Test-initiated (from disarmed or armed):
  *   disarmed | armed_* → deterrence | alarm  (testDeterrence / testAlarm)
  */
 export const VALID_TRANSITIONS: Readonly<Record<Mode, readonly Mode[]>> = {
-  disarmed: ['armed_away', 'armed_stay', 'deterrence', 'alarm'],
-  armed_away: ['disarmed', 'deterrence', 'alarm'],
-  armed_stay: ['disarmed', 'armed_away', 'deterrence', 'alarm'],
-  deterrence: ['alarm', 'armed_stay', 'armed_away', 'disarmed'],
-  alarm: ['armed_stay', 'armed_away', 'disarmed'],
+  disarmed: ['armed', 'armed_perimeter', 'deterrence', 'alarm'],
+  armed: ['disarmed', 'deterrence', 'alarm'],
+  armed_perimeter: ['disarmed', 'armed', 'deterrence', 'alarm'],
+  deterrence: ['alarm', 'armed_perimeter', 'armed', 'disarmed'],
+  alarm: ['armed_perimeter', 'armed', 'disarmed'],
 };
 
 export function isValidTransition(from: Mode, to: Mode): boolean {
