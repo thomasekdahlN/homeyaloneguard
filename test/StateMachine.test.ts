@@ -178,4 +178,66 @@ describe('StateMachine', () => {
       expect(sm.getMode()).toBe('disarmed');
     });
   });
+
+  describe('deterrence og alarm-modus', () => {
+    it('tillater armed_stay → deterrence → alarm → disarmed', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('armed_stay');
+      await sm.setMode('deterrence');
+      expect(sm.getMode()).toBe('deterrence');
+      await sm.setMode('alarm');
+      expect(sm.getMode()).toBe('alarm');
+      await sm.setMode('disarmed');
+      expect(sm.getMode()).toBe('disarmed');
+    });
+
+    it('tillater armed_away → deterrence → alarm → armed_away', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('armed_away');
+      vi.advanceTimersByTime(0); // flush any pending timers
+      await sm.setMode('deterrence');
+      await sm.setMode('alarm');
+      await sm.setMode('armed_away');
+      expect(sm.getMode()).toBe('armed_away');
+    });
+
+    it('tillater deterrence → armed_stay (stopp alarm uten å gå via disarmed)', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('armed_stay');
+      await sm.setMode('deterrence');
+      await sm.setMode('armed_stay');
+      expect(sm.getMode()).toBe('armed_stay');
+    });
+
+    it('tillater disarmed → deterrence (test-modus)', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('deterrence');
+      expect(sm.getMode()).toBe('deterrence');
+    });
+
+    it('tillater disarmed → alarm (test-modus)', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('alarm');
+      expect(sm.getMode()).toBe('alarm');
+    });
+
+    it('kaster feil ved alarm → deterrence (ugyldig overgang)', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('alarm');
+      await expect(sm.setMode('deterrence')).rejects.toThrow('Ugyldig modusovergang');
+      expect(sm.getMode()).toBe('alarm');
+    });
+
+    it('kaller listener ved deterrence- og alarm-overganger', async () => {
+      const sm = new StateMachine(homey as never, log);
+      const listener = vi.fn();
+      sm.onModeChange(listener);
+      await sm.setMode('armed_stay');
+      await sm.setMode('deterrence');
+      await sm.setMode('alarm');
+      expect(listener).toHaveBeenNthCalledWith(1, 'armed_stay', 'disarmed');
+      expect(listener).toHaveBeenNthCalledWith(2, 'deterrence', 'armed_stay');
+      expect(listener).toHaveBeenNthCalledWith(3, 'alarm', 'deterrence');
+    });
+  });
 });

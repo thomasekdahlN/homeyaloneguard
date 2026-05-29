@@ -35,8 +35,8 @@ interface AppRef {
   getSettings(): GuardSettings;
   saveSettings(settings: Partial<GuardSettings>): GuardSettings;
   setMode(mode: Mode): Promise<void>;
-  triggerPanic(): Promise<void>;
   testDeterrence(zoneId: string): Promise<void>;
+  testAlarm(): Promise<void>;
   stopAlarm(): Promise<void>;
   setCameraMotionEnabled(enabled: boolean): void;
   bypassPerimeter(seconds: number): void;
@@ -79,7 +79,7 @@ module.exports = {
       activeDeterrenceZone: app.deterrence.getActiveZone(),
       activeMotionZone: app.deterrence.getActiveMotionZone(),
       simulationRunning: app.simulation.isRunning(),
-      escalationPending: app.escalation.isPending(),
+      escalationPending: app.stateMachine.getMode() === 'deterrence',
       inCrisis: app.escalation.isInCrisis(),
       testActive: app.isTestActive(),
       alarmActive: app.isAlarmActive(),
@@ -166,13 +166,13 @@ module.exports = {
     }
   },
 
-  async triggerPanic({ homey }: Ctx) {
-    await homey.app.triggerPanic();
+  async testDeterrence({ homey, body }: BodyCtx<{ zoneId: string }>) {
+    await homey.app.testDeterrence(body.zoneId);
     return { success: true };
   },
 
-  async testDeterrence({ homey, body }: BodyCtx<{ zoneId: string }>) {
-    await homey.app.testDeterrence(body.zoneId);
+  async testAlarm({ homey }: Ctx) {
+    await homey.app.testAlarm();
     return { success: true };
   },
 

@@ -75,13 +75,6 @@
     "triggers": [
       {
         "title": {
-          "en": "Alarm escalated to CRISIS level",
-          "no": "Alarm eskalert til KRISENIVÅ"
-        },
-        "id": "alarm_escalated"
-      },
-      {
-        "title": {
           "en": "Alarm stopped",
           "no": "Alarm avsluttet"
         },
@@ -229,55 +222,6 @@
       },
       {
         "title": {
-          "en": "Panic alarm stopped",
-          "no": "Panikkalarmen avsluttet"
-        },
-        "hint": {
-          "en": "Fires when an active panic alarm is stopped — by the user or by disarming.",
-          "no": "Utløses når en aktiv panikkalarm stoppes — av bruker eller ved deaktivering."
-        },
-        "tokens": [
-          {
-            "name": "zone",
-            "type": "string",
-            "title": {
-              "en": "Zone (that triggered)",
-              "no": "Sone (som utløste)"
-            },
-            "example": {
-              "en": "All zones",
-              "no": "Alle soner"
-            }
-          },
-          {
-            "name": "sensor",
-            "type": "string",
-            "title": {
-              "en": "Sensor (that triggered)",
-              "no": "Sensor (som utløste)"
-            },
-            "example": {
-              "en": "Manual panic",
-              "no": "Manuell panikk"
-            }
-          },
-          {
-            "name": "reason",
-            "type": "string",
-            "title": {
-              "en": "Reason",
-              "no": "Årsak"
-            },
-            "example": {
-              "en": "User stopped alarm",
-              "no": "Bruker stoppet alarm"
-            }
-          }
-        ],
-        "id": "alarm_stopped_panic"
-      },
-      {
-        "title": {
           "en": "Perimeter breach alarm stopped",
           "no": "Skallsikring-brudd alarm avsluttet"
         },
@@ -331,8 +275,8 @@
           "no": "Alarm utløst"
         },
         "hint": {
-          "en": "Fires when any sensor trips the alarm while the system is armed. For type-specific reactions use the dedicated trigger cards: alarm_triggered_perimeter, alarm_triggered_intrusion, alarm_triggered_entry_delay or alarm_triggered_panic.",
-          "no": "Utløses når en sensor aktiverer alarmen mens systemet er armert. For type-spesifikke reaksjoner bruk de dedikerte trigger-kortene: alarm_triggered_perimeter, alarm_triggered_intrusion, alarm_triggered_entry_delay eller alarm_triggered_panic."
+          "en": "Fires when any sensor trips the alarm while the system is armed. For type-specific reactions use the dedicated trigger cards: alarm_triggered_intrusion or alarm_triggered_entry_delay.",
+          "no": "Utløses når en sensor aktiverer alarmen mens systemet er armert. For type-spesifikke reaksjoner bruk de dedikerte trigger-kortene: alarm_triggered_intrusion eller alarm_triggered_entry_delay."
         },
         "tokens": [
           {
@@ -543,265 +487,6 @@
           }
         ],
         "id": "alarm_triggered_intrusion"
-      },
-      {
-        "title": {
-          "en": "Panic triggered",
-          "no": "Panikk utløst"
-        },
-        "hint": {
-          "en": "Fires immediately when the panic button is pressed or the trigger_panic flow action runs. Use this for the most urgent reactions: call an emergency contact, SMS all household members, maximum deterrence with no delay.",
-          "no": "Utløses umiddelbart når panikk-knappen trykkes eller flow-handlingen trigger_panic kjøres. Bruk dette til de mest akutte reaksjonene: ring nødkontakt, SMS til alle i husstanden, maksimal avskrekking uten forsinkelse."
-        },
-        "tokens": [
-          {
-            "name": "zone",
-            "type": "string",
-            "title": {
-              "en": "Zone",
-              "no": "Sone"
-            },
-            "example": {
-              "en": "All zones",
-              "no": "Alle soner"
-            }
-          },
-          {
-            "name": "sensor",
-            "type": "string",
-            "title": {
-              "en": "Sensor",
-              "no": "Sensor"
-            },
-            "example": {
-              "en": "Manual panic",
-              "no": "Manuell panikk"
-            }
-          },
-          {
-            "name": "sensor_type",
-            "type": "string",
-            "title": {
-              "en": "Sensor type",
-              "no": "Sensortype"
-            },
-            "example": {
-              "en": "panic",
-              "no": "panikk"
-            }
-          },
-          {
-            "name": "mode",
-            "type": "string",
-            "title": {
-              "en": "Current mode",
-              "no": "Aktiv modus"
-            },
-            "example": {
-              "en": "armed_away",
-              "no": "armed_away"
-            }
-          },
-          {
-            "name": "timestamp",
-            "type": "string",
-            "title": {
-              "en": "Timestamp (ISO 8601)",
-              "no": "Tidsstempel (ISO 8601)"
-            },
-            "example": {
-              "en": "2026-05-26T08:00:00.000Z",
-              "no": "2026-05-26T08:00:00.000Z"
-            }
-          }
-        ],
-        "id": "alarm_triggered_panic"
-      },
-      {
-        "title": {
-          "en": "Perimeter breach detected (Skallsikring)",
-          "no": "Skallsikring-brudd oppdaget"
-        },
-        "hint": {
-          "en": "Fires when a door, window or perimeter motion sensor trips the alarm while the system is in Skallsikring (armed_stay) mode. Use this for tailored reactions when someone is home — e.g. interior lights on, warning voice, without waking the whole household.",
-          "no": "Utløses når en dør, et vindu eller en perimeter-bevegelsessensor aktiverer alarmen i Skallsikring-modus. Bruk dette for skreddersydde reaksjoner når noen er hjemme — f.eks. lys på, stemme-advarsel, uten å vekke hele husstanden."
-        },
-        "tokens": [
-          {
-            "name": "zone",
-            "type": "string",
-            "title": {
-              "en": "Zone",
-              "no": "Sone"
-            },
-            "example": {
-              "en": "Hallway",
-              "no": "Gang"
-            }
-          },
-          {
-            "name": "sensor",
-            "type": "string",
-            "title": {
-              "en": "Sensor",
-              "no": "Sensor"
-            },
-            "example": {
-              "en": "Front door",
-              "no": "Hoveddør"
-            }
-          },
-          {
-            "name": "sensor_type",
-            "type": "string",
-            "title": {
-              "en": "Sensor type",
-              "no": "Sensortype"
-            },
-            "example": {
-              "en": "contact",
-              "no": "kontakt"
-            }
-          },
-          {
-            "name": "mode",
-            "type": "string",
-            "title": {
-              "en": "Current mode",
-              "no": "Aktiv modus"
-            },
-            "example": {
-              "en": "armed_stay",
-              "no": "armed_stay"
-            }
-          },
-          {
-            "name": "timestamp",
-            "type": "string",
-            "title": {
-              "en": "Timestamp (ISO 8601)",
-              "no": "Tidsstempel (ISO 8601)"
-            },
-            "example": {
-              "en": "2026-05-26T08:00:00.000Z",
-              "no": "2026-05-26T08:00:00.000Z"
-            }
-          }
-        ],
-        "id": "alarm_triggered_perimeter"
-      },
-      {
-        "title": {
-          "en": "Deterrence started in zone",
-          "no": "Avskrekking startet i sone"
-        },
-        "titleFormatted": {
-          "en": "Deterrence started in zone [[zone]]",
-          "no": "Avskrekking startet i sone [[zone]]"
-        },
-        "tokens": [
-          {
-            "name": "zone",
-            "type": "string",
-            "title": {
-              "en": "Zone",
-              "no": "Sone"
-            },
-            "example": {
-              "en": "Master bedroom",
-              "no": "Hovedsoverom"
-            }
-          },
-          {
-            "name": "url_police_siren",
-            "type": "string",
-            "title": {
-              "en": "URL: police siren (audio)",
-              "no": "URL: politisirene (lyd)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/police-siren.ogg"
-            }
-          },
-          {
-            "name": "url_fire_alarm",
-            "type": "string",
-            "title": {
-              "en": "URL: fire alarm (audio)",
-              "no": "URL: brannalarm (lyd)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/fire-alarm.ogg"
-            }
-          },
-          {
-            "name": "url_alarm_beep",
-            "type": "string",
-            "title": {
-              "en": "URL: alarm beep (audio)",
-              "no": "URL: alarm-pip (lyd)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/alarm-beep.ogg"
-            }
-          },
-          {
-            "name": "url_guard_dog",
-            "type": "string",
-            "title": {
-              "en": "URL: guard dog barking (audio)",
-              "no": "URL: vakthund som bjeffer (lyd)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/guard-dog.ogg"
-            }
-          },
-          {
-            "name": "url_intruder_voice",
-            "type": "string",
-            "title": {
-              "en": "URL: intruder warning voice (audio)",
-              "no": "URL: stemme-advarsel mot inntrenger (lyd)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/intruder-voice.m4a"
-            }
-          },
-          {
-            "name": "url_blue_lights",
-            "type": "string",
-            "title": {
-              "en": "URL: blue lights (video)",
-              "no": "URL: blålys (video)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/blue-lights.mp4"
-            }
-          },
-          {
-            "name": "url_cop_silhouette",
-            "type": "string",
-            "title": {
-              "en": "URL: police silhouette (video)",
-              "no": "URL: politi-silhuett (video)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/cop-silhouette.mp4"
-            }
-          },
-          {
-            "name": "url_large_dog",
-            "type": "string",
-            "title": {
-              "en": "URL: large dog (video)",
-              "no": "URL: stor hund (video)"
-            },
-            "example": {
-              "en": "http://192.168.1.10/app/com.mccallister.guard/assets/media/large-dog.mp4"
-            }
-          }
-        ],
-        "id": "deterrence_started"
       },
       {
         "title": {
@@ -1104,10 +789,31 @@
       },
       {
         "title": {
-          "en": "Trigger panic (full escalation immediately)",
-          "no": "Utløs panikk (full eskalering umiddelbart)"
+          "en": "Test full alarm (escalation)",
+          "no": "Test full alarm (eskalering)"
         },
-        "id": "trigger_panic"
+        "id": "trigger_alarm"
+      },
+      {
+        "title": {
+          "en": "Test deterrence in zone",
+          "no": "Test avskrekking i sone"
+        },
+        "titleFormatted": {
+          "en": "Test deterrence in [[zone]]",
+          "no": "Test avskrekking i [[zone]]"
+        },
+        "args": [
+          {
+            "name": "zone",
+            "type": "autocomplete",
+            "placeholder": {
+              "en": "Select zone…",
+              "no": "Velg sone…"
+            }
+          }
+        ],
+        "id": "trigger_deterrence"
       }
     ]
   }

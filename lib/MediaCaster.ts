@@ -4,14 +4,14 @@ import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
 import type LightAuthGuard from './LightAuthGuard';
 import { isLight } from './Capabilities';
-import {
-  DEFAULT_ALARM_BLINK_OFF, DEFAULT_ALARM_BLINK_ON, DEFAULT_BLINK_SECONDS, GuardSettings,
-} from './types';
+import { DEFAULT_BLINK_SECONDS, GuardSettings } from './types';
 
 const BLUE_HUE = 0.66;
 const RED_HUE = 0.0;
 
 interface ZoneTask {
+  /** Light devices managed by this task — reused on stop to avoid a second getDevices() call. */
+  lights: any[];
   stop: () => Promise<void>;
 }
 
@@ -27,58 +27,51 @@ export default class MediaCaster {
     private readonly getSettings: () => GuardSettings,
   ) { }
 
+  /** Start a slow blink on lights in the given zone (deterrence reaction zone). */
   async startBlink(zoneId: string): Promise<void> {
     await this.stopZone(zoneId);
     const devices = await this.zoneDevices(zoneId);
     await this.startLightStrobe(zoneId, devices, [BLUE_HUE, RED_HUE]);
   }
 
-  async startAlarmBlink(): Promise<void> {
-    await this.stopAlarmBlink();
-    const devices = await this.allDevices();
-    const settings = this.getSettings();
-    const onSec = Math.max(1, settings.alarm_blink_on ?? DEFAULT_ALARM_BLINK_ON);
-    const offSec = Math.max(1, settings.alarm_blink_off ?? DEFAULT_ALARM_BLINK_OFF);
-    await this.startLightStrobeWithTiming('__alarm__', devices, [RED_HUE, BLUE_HUE], onSec, offSec);
-  }
-
-  async stopAlarmBlink(): Promise<void> {
-    const task = this.active.get('__alarm__');
-    if (task) {
-      try {
-        await task.stop();
-      } catch (err) {
-        this.log.add('warning', `stopAlarmBlink feilet: ${(err as Error).message}`);
+  /**
+   * Stop all active blink tasks and turn off their lights.
+   * Call this unconditionally when disarming or stopping an alarm — no guard needed.
+   */
+  async stopAll(): Promise<void> {
+    const entries = Array.from(this.active.entries());
+    this.active.clear();
+    for (const [, task] of entries) {
+      try { await task.stop(); } catch { /* best-effort */ }
+      for (const light of task.lights) {
+        try {
+          this.lightAuth.registerOwnCommand(light.id, false);
+          await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
+        } catch { /* best-effort */ }
       }
-      this.active.delete('__alarm__');
     }
-    const devices = await this.allDevices();
-    for (const device of devices) {
-      if (!isLight(device)) continue;
-      try {
-        this.lightAuth.registerOwnCommand(device.id, false);
-        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
-      } catch { /* best-effort */ }
+    if (entries.length > 0) {
+      this.log.add('info', `stopAll: ${entries.length} lys-oppgave(r) avsluttet og lys slukket.`);
     }
-    this.log.add('info', 'Alarm-blink stoppet — alle lys slukket.');
   }
 
+  /**
+   * Stop the blink task for a single zone and turn off its lights.
+   * Uses the device list cached in the task — no extra getDevices() call.
+   */
   async stopZone(zoneId: string): Promise<void> {
     const task = this.active.get(zoneId);
-    if (task) {
-      try {
-        await task.stop();
-      } catch (err) {
-        this.log.add('warning', `Stop zone feilet: ${(err as Error).message}`, zoneId);
-      }
-      this.active.delete(zoneId);
+    if (!task) return;
+    this.active.delete(zoneId);
+    try {
+      await task.stop();
+    } catch (err) {
+      this.log.add('warning', `Stop zone feilet: ${(err as Error).message}`, zoneId);
     }
-    const devices = await this.zoneDevices(zoneId);
-    for (const device of devices) {
-      if (!isLight(device)) continue;
+    for (const light of task.lights) {
       try {
-        this.lightAuth.registerOwnCommand(device.id, false);
-        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+        this.lightAuth.registerOwnCommand(light.id, false);
+        await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
       } catch { /* best-effort */ }
     }
   }
@@ -93,7 +86,7 @@ export default class MediaCaster {
   private async startLightStrobeWithTiming(key: string, devices: any[], hues: number[], onSec: number, offSec: number): Promise<void> {
     const lights = devices.filter((d: any) => isLight(d));
     if (lights.length === 0) {
-      this.log.add('warning', `Ingen lys å blinke (nøkkel: ${key}).`);
+      this.log.add('warning', `Ingen lys å blinke i sone ${key}.`, key);
       return;
     }
     const onMs = onSec * 1000;
@@ -106,7 +99,8 @@ export default class MediaCaster {
     const turnOn = async (): Promise<void> => {
       const hue = hues[idx % hues.length] ?? BLUE_HUE;
       idx += 1;
-      for (const light of lights) {
+      // Fire all lights in parallel to reduce latency and CPU time.
+      await Promise.all(lights.map(async (light) => {
         try {
           this.lightAuth.registerOwnCommand(light.id, true);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: true });
@@ -120,16 +114,16 @@ export default class MediaCaster {
             await light.setCapabilityValue({ capabilityId: 'dim', value: 1 });
           }
         } catch { /* best-effort */ }
-      }
+      }));
     };
 
     const turnOff = async (): Promise<void> => {
-      for (const light of lights) {
+      await Promise.all(lights.map(async (light) => {
         try {
           this.lightAuth.registerOwnCommand(light.id, false);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
         } catch { /* best-effort */ }
-      }
+      }));
     };
 
     const cycle = async (): Promise<void> => {
@@ -144,23 +138,21 @@ export default class MediaCaster {
 
     cycle().catch(() => { /* best-effort */ });
 
+    // Store lights reference in the task so stopZone/stopAll can turn them off
+    // without making another getDevices() API call.
     this.active.set(key, {
+      lights,
       stop: async () => {
         stopped = true;
         if (timer) this.homey.clearTimeout(timer);
       },
     });
-    this.log.add('info', `Starter blinkende lys (nøkkel: ${key}, ${onSec}s på / ${offSec}s av).`);
+    this.log.add('info', `Starter blinkende lys i sone ${key}: ${lights.length} lys, ${onSec}s på / ${offSec}s av.`, key);
   }
 
   private async zoneDevices(zoneId: string): Promise<any[]> {
     const devices = await this.homeyApi.devices.getDevices();
     return Object.values(devices).filter((d: any) => d.zone === zoneId);
-  }
-
-  private async allDevices(): Promise<any[]> {
-    const devices = await this.homeyApi.devices.getDevices();
-    return Object.values(devices);
   }
 
 }

@@ -116,7 +116,7 @@ export default class StateMachine {
     this.modeChangedAt = Date.now();
     this.homey.settings.set(SETTINGS_KEYS.MODE, next);
     this.homey.settings.set(SETTINGS_KEYS.MODE_CHANGED_AT, this.modeChangedAt);
-    this.log.add('info', `Modus satt til: ${next}.`);
+    this.log.add('info', `Modus endret: ${previous} → ${next}.`);
     for (const listener of this.listeners) {
       try {
         listener(next, previous);

@@ -4,8 +4,8 @@
     "no": "Alarm utløst"
   },
   "hint": {
-    "en": "Fires when any sensor trips the alarm while the system is armed. For type-specific reactions use the dedicated trigger cards: alarm_triggered_perimeter, alarm_triggered_intrusion, alarm_triggered_entry_delay or alarm_triggered_panic.",
-    "no": "Utløses når en sensor aktiverer alarmen mens systemet er armert. For type-spesifikke reaksjoner bruk de dedikerte trigger-kortene: alarm_triggered_perimeter, alarm_triggered_intrusion, alarm_triggered_entry_delay eller alarm_triggered_panic."
+    "en": "Fires when any sensor trips the alarm while the system is armed. For type-specific reactions use the dedicated trigger cards: alarm_triggered_intrusion or alarm_triggered_entry_delay.",
+    "no": "Utløses når en sensor aktiverer alarmen mens systemet er armert. For type-spesifikke reaksjoner bruk de dedikerte trigger-kortene: alarm_triggered_intrusion eller alarm_triggered_entry_delay."
   },
   "tokens": [
     {

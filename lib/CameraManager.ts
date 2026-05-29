@@ -55,19 +55,22 @@ export default class CameraManager {
    * Rebuild the zone→camera mapping from the current device list.
    * Call this at startup and after zone configuration is saved.
    *
-   * Image URL resolution strategy:
-   *  1. Call `homeyApi.images.getImages()` — returns all images registered in Homey with their
-   *     `ownerUri` (format: "homey:device:{deviceId}") and relative `url`.
-   *     Camera drivers register images via `device.setCameraImage()`, which is the Homey standard.
-   *  2. Fall back to `device.images[0].url` if present (some older drivers expose it there).
-   *  3. Null if neither source has a URL — camera cannot be captured.
+   * Image URL resolution priority (highest first):
+   *  0. settings.camera_snapshot_urls[deviceId] — manually entered by the user in the settings UI.
+   *     Use this when the camera driver does not implement device.setCameraImage().
+   *  1. homeyApi.images.getImages() ownerUri matching — standard Homey camera images registered
+   *     via device.setCameraImage(). Works for cameras whose driver follows the Homey standard.
+   *  2. device.images[0].url — legacy fallback for older drivers.
+   *  3. null — no URL found; camera is skipped silently during capture.
    *
-   * Note: HomeyAPIV3Local.ManagerImages has NO `getImage()` method (only `getImages()` plural),
-   * and Image objects in the device spec are empty stubs (`additionalProperties: false`). This
-   * is why going through the images manager directly is necessary.
+   * Note: HomeyAPIV3Local.ManagerImages has NO getImage() method (only getImages() plural),
+   * and device.images objects are empty stubs (additionalProperties: false). See README for details.
    */
   async refreshZoneCache(): Promise<void> {
     try {
+      // Step 0: manual URL overrides from settings (highest priority).
+      const manualUrls: Record<string, string> = this.getSettings().camera_snapshot_urls ?? {};
+
       // Step 1: fetch all registered Homey images and build a deviceId → url map.
       const deviceImageUrl = new Map<string, string>();
       try {
@@ -77,11 +80,8 @@ export default class CameraManager {
           // ownerUri format: "homey:device:{deviceId}"
           const ownerUri: string = String(img.ownerUri ?? '');
           const match = ownerUri.match(/^homey:device:(.+)$/);
-          if (match) {
-            // Keep only the first image per device (setCameraImage default is 'front').
-            if (!deviceImageUrl.has(match[1])) {
-              deviceImageUrl.set(match[1], String(img.url));
-            }
+          if (match && !deviceImageUrl.has(match[1])) {
+            deviceImageUrl.set(match[1], String(img.url));
           }
         }
       } catch {
@@ -96,10 +96,15 @@ export default class CameraManager {
 
         const deviceId = String(d.id);
 
-        // Primary: image registered via device.setCameraImage() → found in getImages().
-        let imageUrl: string | null = deviceImageUrl.get(deviceId) ?? null;
+        // Priority 0: manually configured URL (beats all automatic resolution).
+        let imageUrl: string | null = manualUrls[deviceId] ? String(manualUrls[deviceId]) : null;
 
-        // Fallback: device.images[0].url (may be populated by some drivers).
+        // Priority 1: image registered via device.setCameraImage() in ManagerImages.
+        if (!imageUrl) {
+          imageUrl = deviceImageUrl.get(deviceId) ?? null;
+        }
+
+        // Priority 2: device.images[0].url (legacy drivers).
         if (!imageUrl) {
           const rawImages = Array.isArray(d.images) ? d.images : [];
           const rawImage = rawImages[0];
@@ -107,6 +112,8 @@ export default class CameraManager {
             imageUrl = typeof rawImage === 'string' ? rawImage : (rawImage.url ?? null);
           }
         }
+
+        // No imageUrl found — camera will be skipped silently during capture.
 
         const entry: ZoneCameraEntry = {
           id: deviceId,
@@ -179,12 +186,6 @@ export default class CameraManager {
         : (settings.camera_motion_cams?.[camera.id] !== false);
       if (!camEnabled) continue;
 
-      this.log.add(
-        'info',
-        `Snapshot-burst: ${camera.name || camera.id} i sone ${zoneId} (${burstCount} bilde${burstCount > 1 ? 'r' : ''}, ${isAlarm ? 'alarm' : 'bevegelse'}).`,
-        zoneId,
-      );
-
       for (let i = 0; i < burstCount; i += 1) {
         await this.captureOne(zoneId, camera, isAlarm);
         if (i < burstCount - 1) {
@@ -205,10 +206,7 @@ export default class CameraManager {
       // JSON stubs without getStream(). We therefore fetch the JPEG directly via the Homey
       // local HTTP API using the owner token.
       const { imageUrl } = camera;
-      if (!imageUrl) {
-        this.log.add('warning', `Snapshot: ${camera.name} har ingen bilde-URL konfigurert.`, zoneId);
-        return;
-      }
+      if (!imageUrl) return;
 
       const { baseUrl, token } = await this.getApiCredentials();
       const fullUrl = imageUrl.startsWith('http') ? imageUrl : `${baseUrl}${imageUrl}`;
@@ -240,6 +238,7 @@ export default class CameraManager {
 
       // Write to disk (sync — file is small, keeps error handling simple).
       fs.writeFileSync(filepath, buffer);
+      this.log.add('info', `Snapshot lagret: ${camera.name} i sone ${zoneId} (${isAlarm ? 'alarm' : 'bevegelse'}, ${buffer.length} B).`, zoneId);
 
       // FIFO cleanup: remove oldest files if we exceed the per-category limit.
       const maxCount = this.getSettings().snapshot_max_count ?? SNAPSHOT_MAX_COUNT_DEFAULT;

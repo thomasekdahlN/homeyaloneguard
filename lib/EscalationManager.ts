@@ -10,7 +10,6 @@ export type EscalationListener = () => void;
 
 export default class EscalationManager {
 
-  private timer: NodeJS.Timeout | null = null;
   private strobeInterval: NodeJS.Timeout | null = null;
   private inCrisis = false;
   private listeners: EscalationListener[] = [];
@@ -22,45 +21,15 @@ export default class EscalationManager {
     private readonly lightAuth: LightAuthGuard,
   ) { }
 
-  start(escalationMinutes: number): void {
-    if (this.timer || this.inCrisis) return;
-    const ms = Math.max(1, escalationMinutes) * 60_000;
-    this.log.add('warning', `Eskaleringstimer startet (${escalationMinutes} min).`);
-    this.timer = this.homey.setTimeout(() => {
-      this.timer = null;
-      this.triggerCrisis(escalationMinutes).catch((err) => {
-        this.log.add('warning', `Krise feilet: ${(err as Error).message}`);
-      });
-    }, ms);
-  }
-
-  cancel(): void {
-    if (this.timer) {
-      this.homey.clearTimeout(this.timer);
-      this.timer = null;
-    }
-    if (this.strobeInterval) {
-      this.homey.clearInterval(this.strobeInterval);
-      this.strobeInterval = null;
-    }
-    this.inCrisis = false;
-  }
-
-  onCrisis(listener: EscalationListener): void {
-    this.listeners.push(listener);
-  }
-
-  isInCrisis(): boolean {
-    return this.inCrisis;
-  }
-
-  isPending(): boolean {
-    return this.timer !== null;
-  }
-
-  private async triggerCrisis(escalationMinutes: number): Promise<void> {
+  /**
+   * Immediately trigger the full alarm crisis (sirens + strobe).
+   * The deterrence → alarm timer lives in app.ts; this method is called
+   * when the system enters alarm mode.
+   */
+  async triggerCrisis(): Promise<void> {
+    if (this.inCrisis) return;
     this.inCrisis = true;
-    this.log.add('critical', `KRITISK: Avskrekking feilet etter ${escalationMinutes} min — full eskalering.`);
+    this.log.add('critical', 'ALARM: Full eskalering — sirener og strobe aktiv.');
     for (const listener of this.listeners) {
       try { listener(); } catch { /* best-effort */ }
     }
@@ -102,6 +71,22 @@ export default class EscalationManager {
         } catch { /* best-effort */ }
       }
     }, STROBE_INTERVAL_MS);
+  }
+
+  cancel(): void {
+    if (this.strobeInterval) {
+      this.homey.clearInterval(this.strobeInterval);
+      this.strobeInterval = null;
+    }
+    this.inCrisis = false;
+  }
+
+  onCrisis(listener: EscalationListener): void {
+    this.listeners.push(listener);
+  }
+
+  isInCrisis(): boolean {
+    return this.inCrisis;
   }
 
 }

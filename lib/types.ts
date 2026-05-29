@@ -1,8 +1,8 @@
 'use strict';
 
-export type Mode = 'disarmed' | 'armed_away' | 'armed_stay';
+export type Mode = 'disarmed' | 'armed_away' | 'armed_stay' | 'deterrence' | 'alarm';
 
-export type AlarmType = 'perimeter' | 'intrusion' | 'entry_delay_timeout' | 'panic';
+export type AlarmType = 'perimeter' | 'intrusion' | 'entry_delay_timeout';
 
 export type EventLevel = 'info' | 'warning' | 'alarm' | 'critical';
 
@@ -56,6 +56,14 @@ export interface GuardSettings {
   armed_stay_on: string;
   /** Time to automatically disable armed_stay (HH:MM, 24h). Default: '06:00'. */
   armed_stay_off: string;
+  /**
+   * Per-camera manual snapshot URL override.
+   * Key = device ID, value = full HTTP URL to a JPEG snapshot endpoint.
+   * Use this when the camera driver does not implement device.setCameraImage().
+   * Example: "http://192.168.1.100/snapshot.jpg" or an ONVIF snapshot URL.
+   * Takes precedence over all automatic URL resolution strategies.
+   */
+  camera_snapshot_urls: Record<string, string>;
 }
 
 export const DEFAULT_BLINK_SECONDS = 15;
@@ -103,18 +111,32 @@ export const DEFAULT_SETTINGS: GuardSettings = {
   armed_stay_auto: false,
   armed_stay_on: '22:00',
   armed_stay_off: '06:00',
+  camera_snapshot_urls: {},
 };
 
 /**
  * Allowed mode transitions.
- * - disarmed   → armed_away | armed_stay
- * - armed_away → disarmed only  (must disarm before switching to stay)
- * - armed_stay → disarmed | armed_away  (can escalate to full-away without disarming first)
+ *
+ * User-initiated (dashboard / flow):
+ *   disarmed   → armed_away | armed_stay
+ *   armed_away → disarmed  (must disarm before switching to armed_stay)
+ *   armed_stay → disarmed | armed_away
+ *
+ * System-initiated (sensor trigger → deterrence → alarm):
+ *   armed_stay | armed_away → deterrence  (sensor triggers deterrence mode)
+ *   deterrence              → alarm       (escalation timer fires)
+ *   deterrence | alarm      → armed_stay | armed_away | disarmed
+ *                             (stopAlarm returns to previous armed state)
+ *
+ * Test-initiated (from disarmed or armed):
+ *   disarmed | armed_* → deterrence | alarm  (testDeterrence / testAlarm)
  */
 export const VALID_TRANSITIONS: Readonly<Record<Mode, readonly Mode[]>> = {
-  disarmed: ['armed_away', 'armed_stay'],
-  armed_away: ['disarmed'],
-  armed_stay: ['disarmed', 'armed_away'],
+  disarmed: ['armed_away', 'armed_stay', 'deterrence', 'alarm'],
+  armed_away: ['disarmed', 'deterrence', 'alarm'],
+  armed_stay: ['disarmed', 'armed_away', 'deterrence', 'alarm'],
+  deterrence: ['alarm', 'armed_stay', 'armed_away', 'disarmed'],
+  alarm: ['armed_stay', 'armed_away', 'disarmed'],
 };
 
 export function isValidTransition(from: Mode, to: Mode): boolean {

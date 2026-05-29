@@ -87,7 +87,6 @@ export default class DeterrenceEngine {
 
   private async execute(reactionZoneId: string, motionZoneId: string): Promise<void> {
     this.activeDeterrenceZone = reactionZoneId;
-    this.log.add('alarm', `Avskrekking startet i sone ${reactionZoneId} (tyv i ${motionZoneId}).`, reactionZoneId);
     await this.media.startBlink(reactionZoneId);
 
     for (const listener of this.listeners) {

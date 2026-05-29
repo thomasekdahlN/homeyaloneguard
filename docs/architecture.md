@@ -139,53 +139,56 @@ Eksempel `.homeycompose/flow/triggers/deterrence_started.json`:
 
 ---
 
-## 4. Kjernekomponenter (Kodeeksempler — TypeScript)
+## 4. Kjernekomponenter
+
+### 4.0. Tilstandsmaskin (5-modus)
+
+McCallister Guard bruker en strikt tilstandsmaskin med fem modi. Alle overganger valideres mot `VALID_TRANSITIONS`-tabellen i `lib/types.ts`.
+
+```
+Mode = 'disarmed' | 'armed_away' | 'armed_stay' | 'deterrence' | 'alarm'
+```
+
+**Tillatte overganger:**
+
+```
+disarmed    → armed_away, armed_stay, deterrence*, alarm*
+armed_away  → disarmed, deterrence, alarm
+armed_stay  → disarmed, armed_away, deterrence, alarm
+deterrence  → alarm, armed_stay, armed_away, disarmed
+alarm       → armed_stay, armed_away, disarmed
+
+* = kun fra test-knapp/flow, ikke fra bruker-dashboard
+```
+
+**Normalt sensorforløp:**
+```
+armed_stay / armed_away
+    │ (sensor utløses)
+    ▼
+deterrence  ──── reaksjonssone-blink (DeterrenceEngine)
+    │ (escalation_minutes timer)
+    ▼
+alarm       ──── full-hus strobe + sirener (EscalationManager)
+    │ (bruker trykker Stopp, eller stopAlarm())
+    ▼
+armed_stay / armed_away  (forrige modus gjenopprettes automatisk)
+```
+
+**Stopp alarm:**
+`stopAlarm()` i `app.ts` lagrer `previousArmedMode` når systemet går inn i `deterrence`, og gjenoppretter denne ved stopp — uten å gå via `disarmed`.
 
 ### 4.1. Hovedmotoren: `app.ts`
 
-Initialiserer appen, kobler seg til Homey API-en og lytter på globale bevegelsessensorer.
+Initialiserer appen, kobler seg til Homey API-en og lytter på globale bevegelsessensorer. Sentrale private metoder:
 
-```typescript
-import Homey from 'homey';
-import { HomeyAPI } from 'homey-api';
-import StateMachine from './lib/StateMachine';
-import DeterrenceEngine from './lib/DeterrenceEngine';
-
-export type Mode = 'disarmed' | 'armed_away' | 'armed_stay';
-
-export default class McCallisterApp extends Homey.App {
-  public homeyApi!: Awaited<ReturnType<typeof HomeyAPI.createLocalAPI>>;
-  public stateMachine!: StateMachine;
-  public deterrenceEngine!: DeterrenceEngine;
-
-  async onInit(): Promise<void> {
-    this.log('McCallister Guard starter opp...');
-
-    this.homeyApi = await HomeyAPI.createLocalAPI({ homey: this.homey });
-
-    this.stateMachine = new StateMachine(this);
-    this.deterrenceEngine = new DeterrenceEngine(this);
-
-    await this.initMotionListener();
-  }
-
-  private async initMotionListener(): Promise<void> {
-    const devices = await this.homeyApi.devices.getDevices();
-
-    for (const device of Object.values(devices)) {
-      if (device.capabilities.includes('alarm_motion')) {
-        device.makeCapabilityInstance('alarm_motion', (value: unknown) => {
-          if (value === true) {
-            this.deterrenceEngine.handleMotion(device.zone, device.id);
-          }
-        });
-      }
-    }
-  }
-}
-
-module.exports = McCallisterApp;
-```
+| Metode | Ansvar |
+|---|---|
+| `enterDeterrence()` | Setter modus=deterrence, starter blink i reaksjonssone og starter `deterrenceTimer` |
+| `enterAlarm()` | Kaller `EscalationManager.triggerCrisis()` og setter modus=alarm |
+| `clearDeterrenceTimer()` | Avbryter eskaleringstimeren (kalles fra `setMode('disarmed')`, `stopAlarm()`, test-metoder) |
+| `setMode()` | Brukerinitiiert modusbytte — rydder alltid timere og media ved disarmed |
+| `stopAlarm()` | Stopper pågående alarm og returnerer til `previousArmedMode` |
 
 ### 4.2. Logikkmotoren for "Mind-games": `lib/DeterrenceEngine.ts`
 

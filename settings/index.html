@@ -59,7 +59,11 @@
       background: #102A43;
     }
 
-    .mode-btn.panic {
+    .mode-btn.deterrence {
+      background: #c07000;
+    }
+
+    .mode-btn.alarm-mode {
       background: #D32F2F;
     }
 
@@ -630,6 +634,184 @@
         box-sizing: border-box;
       }
     }
+
+    /* ══ Dashboard redesign ══════════════════════════════════════════ */
+
+    /* Status card — colored left border tracks current mode */
+    .status-card {
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border-left: 5px solid #1A531A;
+      background: #f0f7f0;
+      transition: border-left-color 0.3s, background 0.3s;
+    }
+
+    .status-card[data-mode="armed_away"] {
+      border-left-color: #F2A900;
+      background: #fdf8ed;
+    }
+
+    .status-card[data-mode="armed_stay"] {
+      border-left-color: #102A43;
+      background: #eef2f7;
+    }
+
+    .status-card[data-mode="deterrence"] {
+      border-left-color: #c07000;
+      background: #fdf5dc;
+    }
+
+    .status-card[data-mode="alarm"] {
+      border-left-color: #D32F2F;
+      background: #fdecea;
+      animation: alarm-pulse 0.9s ease-in-out infinite alternate;
+    }
+
+    @keyframes alarm-pulse {
+      from {
+        background: #fdecea;
+      }
+
+      to {
+        background: #f5bbbb;
+      }
+    }
+
+    .status-card .mode-label {
+      font-size: 17px;
+      font-weight: 700;
+      color: #111;
+    }
+
+    .status-card .meta {
+      font-size: 12px;
+      color: #666;
+      margin-top: 3px;
+    }
+
+    /* Segmented mode selector */
+    .mode-seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1.5px solid #ddd;
+    }
+
+    .mode-seg .mode-btn {
+      width: 100%;
+      padding: 12px 6px;
+      border: 0;
+      border-right: 1px solid #ddd;
+      border-radius: 0;
+      background: #f4f4f6;
+      color: #bbb;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s, color 0.2s;
+      opacity: 1;
+    }
+
+    .mode-seg .mode-btn:last-child {
+      border-right: 0;
+    }
+
+    .mode-seg .mode-btn.inactive {
+      background: #f4f4f6;
+      color: #bbb;
+    }
+
+    .mode-seg .mode-btn.disarmed:not(.inactive) {
+      background: #1A531A;
+      color: #fff;
+    }
+
+    .mode-seg .mode-btn.armed_away:not(.inactive) {
+      background: #F2A900;
+      color: #102A43;
+    }
+
+    .mode-seg .mode-btn.armed_stay:not(.inactive) {
+      background: #102A43;
+      color: #fff;
+    }
+
+    .mode-seg .mode-btn.pending {
+      outline: 3px dashed #F2A900;
+      outline-offset: -3px;
+      animation: pulse-pending 1s ease-in-out infinite alternate;
+    }
+
+    /* Utility buttons (toggle/bypass/test) */
+    .util-btn {
+      padding: 9px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 7px;
+      background: #fff;
+      color: #444;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .util-btn.cam-on {
+      border-color: #1A531A;
+      background: #f0f7f0;
+      color: #1A531A;
+    }
+
+    .util-btn.bypass-on {
+      border-color: #c07000;
+      background: #fdf5dc;
+      color: #7a4a00;
+    }
+
+    .util-btn.test-deter {
+      border-color: #1A531A;
+      color: #1A531A;
+    }
+
+    .util-btn.test-alarm {
+      border-color: #D32F2F;
+      color: #D32F2F;
+    }
+
+    /* Dashboard section cards */
+    .dash-section {
+      border: 1px solid #e5e5ea;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+
+    .dash-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: #bbb;
+      margin-bottom: 8px;
+    }
+
+    .dash-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .dash-row select {
+      height: 36px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      padding: 0 8px;
+    }
   </style>
 </head>
 
@@ -646,34 +828,57 @@
   </div>
 
   <section class="tab-panel active" id="tab-dashboard">
-    <div id="status" class="status-line">Laster status…</div>
-    <button class="mode-btn stop" id="btn-stop" style="display:none;">🛑 Stopp alarm</button>
-    <div class="row" style="margin-bottom:12px;">
-      <button class="mode-btn disarmed" data-mode="disarmed">Hjemme</button>
-      <button class="mode-btn armed_away" data-mode="armed_away">Borte</button>
-      <button class="mode-btn armed_stay" data-mode="armed_stay">Skallsikring</button>
-      <button class="mode-btn panic" id="btn-panic">🚨 PANIKK</button>
+
+    <!-- Current mode status -->
+    <div id="status" class="status-card" data-mode="disarmed">Laster status…</div>
+
+    <!-- Stop alarm — only visible during alert states -->
+    <button class="mode-btn stop" id="btn-stop" style="display:none;">Stopp alarm</button>
+
+    <!-- Mode selector -->
+    <div class="dash-section">
+      <div class="dash-section-label">Modus</div>
+      <div class="mode-seg">
+        <button class="mode-btn disarmed" data-mode="disarmed">Hjemme</button>
+        <button class="mode-btn armed_away" data-mode="armed_away">Borte</button>
+        <button class="mode-btn armed_stay" data-mode="armed_stay">Skallsikring</button>
+      </div>
     </div>
-    <div class="row" style="margin-bottom:12px;">
-      <button class="mode-btn toggle-on" id="btn-camera-motion">📷 Bilder uten alarm: Av</button>
+
+    <!-- Utility toggles -->
+    <div class="dash-section">
+      <div class="dash-section-label">Tilvalg</div>
+      <div class="dash-row">
+        <button class="util-btn cam-off" id="btn-camera-motion">Bilder uten alarm: Av</button>
+        <button class="util-btn" id="btn-bypass">Forbigå perimeter: Av</button>
+        <select id="bypass-duration">
+          <option value="30">30 s</option>
+          <option value="60" selected>60 s</option>
+          <option value="90">90 s</option>
+          <option value="120">2 min</option>
+          <option value="180">3 min</option>
+          <option value="300">5 min</option>
+        </select>
+      </div>
     </div>
-    <div class="row" style="margin-bottom:12px; align-items:center; gap:8px;">
-      <button class="mode-btn" id="btn-bypass" style="background:#6c757d;">Forbigå perimeter: Av</button>
-      <select id="bypass-duration" style="height:36px; border-radius:6px; border:1px solid #ccc; padding:0 8px;">
-        <option value="30">30 s</option>
-        <option value="60" selected>60 s</option>
-        <option value="90">90 s</option>
-        <option value="120">2 min</option>
-        <option value="180">3 min</option>
-        <option value="300">5 min</option>
-      </select>
+
+    <!-- Test controls -->
+    <div class="dash-section">
+      <div class="dash-section-label">Test</div>
+      <div class="dash-row">
+        <select id="test-zone-select" style="flex:1; min-width:140px;">
+          <option value="">Velg sone…</option>
+        </select>
+        <button class="util-btn test-deter" id="btn-test-deterrence">Test avskrekking</button>
+        <button class="util-btn test-alarm" id="btn-test-alarm">Test alarm</button>
+      </div>
     </div>
+
     <div id="mode-error"
-      style="display:none; background:#D32F2F; color:#fff; border-radius:8px; padding:10px 14px; margin-top:8px; font-size:13px;">
+      style="display:none; background:#D32F2F; color:#fff; border-radius:8px; padding:10px 14px; margin-bottom:8px; font-size:13px;">
     </div>
-    <div class="info-banner">Alarmen aktiveres kun via knappene over eller en flow. Som standard antas det at du er
-      hjemme. Bruk «Stopp alarm» for å avbryte eskalering, sirener og avskrekking uten å endre modus.
-    </div>
+    <div class="info-banner">Alarmen aktiveres kun via knappene over eller en flow. Bruk «Stopp alarm» for å avbryte
+      eskalering og avskrekking uten å endre modus.</div>
   </section>
 
   <section class="tab-panel" id="tab-zones">
@@ -777,19 +982,15 @@
         f.eks. katten din eller solinnstråling utløser sirenen.</p>
 
       <h3>Eskalering</h3>
-      <p>Når kriterier er oppfylt: timer på <code>escalation_minutes</code> starter. Hvis du ikke deaktiverer
-        innen tiden, går systemet i <strong>KRISE</strong>: full sirene, push-varsler, kamera-snapshots, og
-        flow-trigger <code>alarm_escalated</code>.</p>
+      <p>Når kriterier er oppfylt starter eskaleringstimeren (<code>escalation_minutes</code>). Hvis systemet ikke
+        deaktiveres innen tiden, går det i <strong>ALARM</strong>-modus: full sirene på alle høyttalere og strobe på
+        alle lys.</p>
 
       <h3>Lys-vakt (LightAuthGuard)</h3>
       <p>I armert modus (Borte/Skallsikring) holder appen kontroll over lysene: hvis noen (f.eks. en tyv) prøver å slå
         på et lys utenom appens egne kommandoer, slås det umiddelbart av igjen. Under <em>aktiv avskrekking</em> er
         vakta deaktivert i reaksjonssonen slik at en eventuell ekstern avskrekkings-flow trygt kan styre lys (f.eks.
         sette en Hue-scene) parallelt med blinkingen.</p>
-
-      <h3>Panikk</h3>
-      <p>«PANIKK»-knappen på Dashboard utløser umiddelbart krise-tilstand uten nedtelling. Alle høyttalere spiller
-        sirene, push-varsler sendes, og flow-trigger <code>alarm_escalated</code> kjører.</p>
 
       <h3>Stopp alarm</h3>
       <p>«Stopp alarm»-knappen avbryter pågående eskalering, sirener og avskrekking — uten å endre modus. Bruk den
@@ -805,16 +1006,20 @@
       <ul>
         <li><strong>Trigger:</strong>
           <code>alarm_triggered</code> (tokens: <em>zone, sensor, sensor_type, mode, timestamp</em>),
+          <code>alarm_triggered_intrusion</code>,
+          <code>alarm_triggered_entry_delay</code>,
           <code>alarm_stopped</code> (tokens: <em>zone, sensor, reason</em>),
+          <code>alarm_stopped_intrusion</code>,
+          <code>alarm_stopped_entry_delay</code>,
           <code>mode_changed</code> (tokens: <em>mode_new, mode_previous</em>),
-          <code>deterrence_started</code> (tokens: <em>zone</em> + 8 absolutte URL-tokens, se nedenfor),
-          <code>alarm_escalated</code>,
+          <code>snapshot_taken</code>,
           <code>health_check_failed</code> (token: <em>offline_count</em>)
         </li>
         <li><strong>Condition:</strong> <code>alarm_active</code>, <code>is_armed</code>,
           <code>deterrence_active</code>
         </li>
-        <li><strong>Action:</strong> <code>set_mode</code>, <code>trigger_panic</code></li>
+        <li><strong>Action:</strong> <code>set_mode</code>, <code>trigger_deterrence</code>, <code>trigger_alarm</code>
+        </li>
       </ul>
 
       <p><strong>Tips:</strong> Bruk <code>mode_changed</code> til å bygge automatikker rundt modus-bytter
@@ -828,102 +1033,10 @@
         <li>Appen blinker lys i reaksjonssonen med en sakte PÅ/AV-syklus (default 15 sek hver vei,
           justerbart pr. sone under «Lys på (sek)» / «Lys av (sek)»). Dette krever at sonen har minst én
           enhet med <code>device.class === 'light'</code>.</li>
-        <li>Appen fyrer flow-triggeren <code>Avskrekking startet i sone</code>
-          (<code>deterrence_started</code>) med <code>zone</code>-token + 8 absolutte URL-tokens som
-          peker på lyd-/videofilene som ligger bundlet med appen.</li>
-        <li>Hendelsen logges til Event Log + Homey Timeline.</li>
+        <li>Hendelsen logges til Event Log og Homey Timeline.</li>
       </ol>
-      <p>💡 i sone-overskriften viser at <em>Kevin-modus</em> er aktiv for sonen (Borte-modus
-        lys-simulering). «Test avskrekking»-knappen er deaktivert hvis reaksjonssonen ikke har lys.</p>
-
-      <h3>Sett opp en ekstern avskrekkings-flow</h3>
-      <p>For å spille av lyd/video på Chromecast, Sonos, Nest Hub, Samsung TV o.l. bygger du en Homey-flow
-        i Flow-editoren slik:</p>
-      <ol>
-        <li><strong>NÅR:</strong> velg <code>McCallister Guard → Avskrekking startet i sone</code>.</li>
-        <li><strong>OG:</strong> (valgfritt) legg på condition «Sone er <em>navn-på-sone</em>» med
-          <code>zone</code>-tokenet hvis du vil ha forskjellig respons pr. sone.
-        </li>
-        <li><strong>SÅ:</strong> velg en action fra Chromecast-, Sonos- eller Samsung-app-en
-          (typisk <code>Cast a URL</code>, <code>Cast a video</code>, <code>Play a URL</code>,
-          <code>Send key</code>) på enheten i sonen.
-        </li>
-        <li>I URL-feltet på actionen: dra inn ett av URL-tokenene som triggeren leverer
-          (f.eks. <code>url_police_siren</code>, <code>url_blue_lights</code>). Tokenet er en
-          ferdig, <em>absolutt</em> URL som peker på filen som appen hoster lokalt på Homey-en —
-          du trenger ikke hoste filen selv.</li>
-      </ol>
-
-      <h3>Bundlede media-URL-tokens på <code>deterrence_started</code></h3>
-      <p>Tokenene leveres som absolutte URL-er på formatet
-        <code>http://&lt;homey-ip&gt;/app/com.mccallister.guard/assets/media/&lt;fil&gt;</code> og oppdateres
-        automatisk hvis Homey-en bytter IP.
-      </p>
-      <table style="width:100%; border-collapse: collapse; font-size: 13px;">
-        <thead>
-          <tr style="border-bottom: 2px solid #ddd; text-align:left;">
-            <th style="padding:6px;">Token</th>
-            <th style="padding:6px;">Type</th>
-            <th style="padding:6px;">Innhold</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="padding:6px;"><code>url_police_siren</code></td>
-            <td style="padding:6px;">Lyd (.ogg)</td>
-            <td style="padding:6px;">Politisirene</td>
-          </tr>
-          <tr>
-            <td style="padding:6px;"><code>url_fire_alarm</code></td>
-            <td style="padding:6px;">Lyd (.ogg)</td>
-            <td style="padding:6px;">Brannalarm</td>
-          </tr>
-          <tr>
-            <td style="padding:6px;"><code>url_alarm_beep</code></td>
-            <td style="padding:6px;">Lyd (.ogg)</td>
-            <td style="padding:6px;">Alarm-pip</td>
-          </tr>
-          <tr>
-            <td style="padding:6px;"><code>url_guard_dog</code></td>
-            <td style="padding:6px;">Lyd (.ogg)</td>
-            <td style="padding:6px;">Vakthund som bjeffer</td>
-          </tr>
-          <tr>
-            <td style="padding:6px;"><code>url_intruder_voice</code></td>
-            <td style="padding:6px;">Lyd (.m4a)</td>
-            <td style="padding:6px;">Stemme-advarsel mot inntrenger</td>
-          </tr>
-          <tr>
-            <td style="padding:6px;"><code>url_blue_lights</code></td>
-            <td style="padding:6px;">Video (.mp4)</td>
-            <td style="padding:6px;">Blålys (politi-effekt i vindu)</td>
-          </tr>
-          <tr>
-            <td style="padding:6px;"><code>url_cop_silhouette</code></td>
-            <td style="padding:6px;">Video (.mp4)</td>
-            <td style="padding:6px;">Silhuett av politibetjent</td>
-          </tr>
-          <tr>
-            <td style="padding:6px;"><code>url_large_dog</code></td>
-            <td style="padding:6px;">Video (.mp4)</td>
-            <td style="padding:6px;">Stor hund i vindu</td>
-          </tr>
-        </tbody>
-      </table>
-      <p style="margin-top:8px;"><strong>Test:</strong> «Test avskrekking»-knappen i Soneoversikten fyrer
-        <code>deterrence_started</code> nøyaktig på samme måte som en ekte alarm — bruk den for å verifisere
-        at flow-en din plukker opp triggeren. Du ser bekreftelse i Event Log («Flow-trigger
-        «deterrence_started» fyrt for sone …»).
-      </p>
-
-      <h3>Eksempel: blålys-video på Chromecast i stua</h3>
-      <ol>
-        <li><strong>NÅR:</strong> McCallister Guard → Avskrekking startet i sone</li>
-        <li><strong>OG:</strong> Logikk → Tekst er lik → tekst1: <code>[zone]</code>, tekst2: <code>Stue</code></li>
-        <li><strong>SÅ:</strong> Chromecast (på stue-enheten) → <code>Cast a video</code> → URL: dra inn
-          <code>[url_blue_lights]</code>
-        </li>
-      </ol>
+      <p>💡 i sone-overskriften viser at <em>Kevin-modus</em> er aktiv for sonen (Borte-modus lys-simulering).
+        «Test avskrekking»-knappen er deaktivert hvis reaksjonssonen ikke har lys.</p>
 
       <h3>Eksempel: vakthund-bjeffing på Sonos overalt</h3>
       <ol>
@@ -971,9 +1084,22 @@
           settings = s;
           renderGlobalSettings();
           renderZoneBlocks();
+          populateTestZoneSelect();
         } catch (err) {
           $('status').textContent = 'Feil ved lasting: ' + (err.message || err);
         }
+      }
+
+      function populateTestZoneSelect() {
+        const sel = $('test-zone-select');
+        // Keep the placeholder option, then append zone options.
+        while (sel.options.length > 1) sel.remove(1);
+        (zones || []).forEach((z) => {
+          const opt = document.createElement('option');
+          opt.value = z.id;
+          opt.textContent = z.name;
+          sel.appendChild(opt);
+        });
       }
 
       async function refreshLive() {
@@ -992,20 +1118,22 @@
       }
 
       function modeLabel(mode) {
-        return mode === 'armed_away' ? 'Borte'
-          : mode === 'armed_stay' ? 'Skallsikring'
-            : 'Hjemme';
+        if (mode === 'armed_away') return 'Borte';
+        if (mode === 'armed_stay') return 'Skallsikring';
+        if (mode === 'deterrence') return 'Avskrekking aktiv';
+        if (mode === 'alarm') return 'ALARM';
+        return 'Hjemme';
       }
 
       function renderStatus(s) {
         const el = $('status');
-        el.classList.toggle('crisis', s.inCrisis);
+        el.dataset.mode = s.mode || 'disarmed';
         const extras = [];
-        if (s.alarmActive) extras.push('🚨 ALARM utløst');
-        if (s.escalationPending) extras.push('⏳ Eskalering venter');
-        if (s.inCrisis) extras.push('🚨 KRISE');
+        if (s.mode === 'deterrence') extras.push('Avskrekking pågår' + (s.testActive ? ' (TEST)' : ''));
+        if (s.mode === 'alarm') extras.push('FULL ALARM');
+        if (s.escalationPending) extras.push('⏳ Eskalering starter snart');
         if (s.simulationRunning) extras.push('Kevin aktiv');
-        if (s.activeDeterrenceZone) extras.push(s.testActive ? 'Avskrekking aktiv (TEST)' : 'Avskrekking aktiv');
+        if (s.activeDeterrenceZone) extras.push('Reaksjonssone: ' + s.activeDeterrenceZone);
         if (s.entryDelayActive && s.entryDelayEndsAt) {
           const rem = Math.max(0, Math.ceil((s.entryDelayEndsAt - Date.now()) / 1000));
           extras.push(`⏱ Inngangsforsinkelse: ${rem}s — deaktiver for å avbryte`);
@@ -1025,10 +1153,11 @@
           b.classList.toggle('inactive', !isActive && !isPending);
           b.classList.toggle('pending', isPending && !isActive);
         });
-        const showStop = !!(s.alarmActive || s.inCrisis || s.escalationPending || s.activeDeterrenceZone || s.exitDelayActive || s.entryDelayActive);
+        const isAlert = s.mode === 'deterrence' || s.mode === 'alarm';
+        const showStop = !!(isAlert || s.escalationPending || s.activeDeterrenceZone || s.exitDelayActive || s.entryDelayActive);
         const stopBtn = $('btn-stop');
         stopBtn.style.display = showStop ? '' : 'none';
-        stopBtn.classList.toggle('alarm-active', !!(s.alarmActive || s.inCrisis || s.escalationPending || s.activeDeterrenceZone));
+        stopBtn.classList.toggle('alarm-active', isAlert);
         if (typeof s.cameraMotionEnabled === 'boolean') updateCameraMotionBtn(s.cameraMotionEnabled);
         updateBypassBtn(s.perimeterBypassed, s.perimeterBypassEndsAt);
       }
@@ -1036,8 +1165,8 @@
       function updateCameraMotionBtn(enabled) {
         const btn = $('btn-camera-motion');
         btn.dataset.enabled = enabled ? 'true' : 'false';
-        btn.textContent = enabled ? '📷 Bilder uten alarm: På' : '📷 Bilder uten alarm: Av';
-        btn.className = 'mode-btn ' + (enabled ? 'toggle-on' : 'toggle-off');
+        btn.textContent = enabled ? 'Bilder uten alarm: På' : 'Bilder uten alarm: Av';
+        btn.className = 'util-btn ' + (enabled ? 'cam-on' : 'cam-off');
       }
 
       function updateBypassBtn(active, endsAt) {
@@ -1045,10 +1174,10 @@
         if (active && endsAt) {
           const secsLeft = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
           btn.textContent = `Forbigå perimeter: På (${secsLeft}s igjen)`;
-          btn.style.background = '#d97706';
+          btn.className = 'util-btn bypass-on';
         } else {
           btn.textContent = 'Forbigå perimeter: Av';
-          btn.style.background = '#6c757d';
+          btn.className = 'util-btn';
         }
       }
 
@@ -1123,16 +1252,23 @@
 
           const cameraAlarmCams = settings.camera_alarm_cams || {};
           const cameraMotionCams = settings.camera_motion_cams || {};
+          const cameraSnapshotUrls = settings.camera_snapshot_urls || {};
           const cameras = z.cameras || [];
           let cameraBlock = '';
           if (cameras.length > 0) {
             const cameraRows = cameras.map((cam) => {
               const alarmOn = cameraAlarmCams[cam.id] !== false ? 'checked' : '';
               const motionOn = cameraMotionCams[cam.id] !== false ? 'checked' : '';
+              const manualUrl = esc(cameraSnapshotUrls[cam.id] || '');
               return `<div class="sensor-row camera-row">`
                 + `<span class="sensor-name">📷 ${esc(cam.name)}</span>`
                 + `<label class="sensor-flag" title="Ta bilder ved alarm"><input type="checkbox" data-camera-alarm-cam="${esc(cam.id)}" ${alarmOn}> 🔴 Alarm</label>`
                 + `<label class="sensor-flag" title="Ta bilder ved bevegelse (uten alarm)"><input type="checkbox" data-camera-motion-cam="${esc(cam.id)}" ${motionOn}> 🟢 Bevegelse</label>`
+                + `<div style="flex-basis:100%; display:flex; flex-direction:column; gap:2px; margin-top:4px;">`
+                + `<label style="font-size:0.8em; color:#666; font-weight:normal;" title="Oppgi full URL til kameraets snapshot-endepunkt (f.eks. http://192.168.1.x/snap.jpg). Brukes når kameradriveren ikke støtter Homeys native snapshot-API.">`
+                + `Manuell snapshot-URL (valgfri)</label>`
+                + `<input type="url" data-camera-snapshot-url="${esc(cam.id)}" value="${manualUrl}" placeholder="http://192.168.1.x/snapshot.jpg" style="width:100%; box-sizing:border-box; padding:4px 8px; border:1px solid #ccc; border-radius:4px; font-size:0.9em;">`
+                + `</div>`
                 + `</div>`;
             }).join('');
             cameraBlock = `<label>Kameraer</label><div class="sensor-list">${cameraRows}</div>`;
@@ -1180,9 +1316,13 @@
       }
 
       function renderLog(entries) {
+        function fmtMsg(msg) {
+          // Render **bold** markers as <strong> — escape all content first.
+          return String(msg ?? '').split(/\*\*([^*]+)\*\*/).map((p, i) => (i % 2 === 0 ? esc(p) : `<strong>${esc(p)}</strong>`)).join('');
+        }
         $('log').innerHTML = entries.map((e) => `<div class="log-entry">`
           + `<span class="lvl ${e.level}">${e.level.toUpperCase()}</span> `
-          + `<span>${fmtTs(e.ts)}</span> — ${esc(e.message)}</div>`).join('') || '<em>Tom logg.</em>';
+          + `<span>${fmtTs(e.ts)}</span> — ${fmtMsg(e.message)}</div>`).join('') || '<em>Tom logg.</em>';
       }
 
       function renderGlobalSettings() {
@@ -1258,11 +1398,6 @@
           }
         });
       });
-      $('btn-panic').addEventListener('click', async () => {
-        if (!confirm('Utløse PANIKK?')) return;
-        await Homey.api('POST', '/panic', {});
-        refreshLive();
-      });
       $('btn-camera-motion').addEventListener('click', async () => {
         const btn = $('btn-camera-motion');
         const currentlyOn = btn.dataset.enabled === 'true';
@@ -1295,6 +1430,29 @@
         }
         refreshLive();
       });
+      $('btn-test-deterrence').addEventListener('click', async () => {
+        const btn = $('btn-test-deterrence');
+        const zoneId = $('test-zone-select').value;
+        if (!zoneId) { alert('Velg en sone for å teste avskrekking.'); return; }
+        btn.disabled = true;
+        try {
+          await Homey.api('POST', '/test-deterrence', { zoneId });
+          await refreshLive();
+        } finally {
+          setTimeout(() => { btn.disabled = false; }, 2000);
+        }
+      });
+      $('btn-test-alarm').addEventListener('click', async () => {
+        const btn = $('btn-test-alarm');
+        if (!confirm('Kjøre test av full alarm (eskalering)? Alarmen stopper automatisk etter 15 sekunder.')) return;
+        btn.disabled = true;
+        try {
+          await Homey.api('POST', '/test-alarm', {});
+          await refreshLive();
+        } finally {
+          setTimeout(() => { btn.disabled = false; }, 2000);
+        }
+      });
       $('btn-save').addEventListener('click', async () => {
         const payload = {};
         const timeKeys = new Set(['bedtime', 'armed_stay_on', 'armed_stay_off']);
@@ -1305,7 +1463,9 @@
       });
       $('btn-save-zones').addEventListener('click', async () => {
         const payload = {
-          kevin_zones: {}, zone_matrix: {}, perimeter_sensors: [], entry_delay_sensors: [], blink_on: {}, blink_off: {}, camera_alarm_cams: {}, camera_motion_cams: {},
+          kevin_zones: {}, zone_matrix: {}, perimeter_sensors: [], entry_delay_sensors: [],
+          blink_on: {}, blink_off: {}, camera_alarm_cams: {}, camera_motion_cams: {},
+          camera_snapshot_urls: {},
         };
         document.querySelectorAll('[data-kevin]').forEach((c) => { payload.kevin_zones[c.dataset.kevin] = c.checked; });
         document.querySelectorAll('[data-matrix]').forEach((s) => { if (s.value) payload.zone_matrix[s.dataset.matrix] = s.value; });
@@ -1324,6 +1484,10 @@
         });
         document.querySelectorAll('[data-camera-motion-cam]').forEach((c) => {
           payload.camera_motion_cams[c.dataset.cameraMotionCam] = c.checked;
+        });
+        document.querySelectorAll('[data-camera-snapshot-url]').forEach((i) => {
+          const url = i.value.trim();
+          if (url) payload.camera_snapshot_urls[i.dataset.cameraSnapshotUrl] = url;
         });
         await saveSettings(payload, $('btn-save-zones'), 'saved-toast-zones');
         renderZoneBlocks();

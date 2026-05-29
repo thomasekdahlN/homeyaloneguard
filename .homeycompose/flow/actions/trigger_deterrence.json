@@ -1,0 +1,20 @@
+{
+  "title": {
+    "en": "Test deterrence in zone",
+    "no": "Test avskrekking i sone"
+  },
+  "titleFormatted": {
+    "en": "Test deterrence in [[zone]]",
+    "no": "Test avskrekking i [[zone]]"
+  },
+  "args": [
+    {
+      "name": "zone",
+      "type": "autocomplete",
+      "placeholder": {
+        "en": "Select zone…",
+        "no": "Velg sone…"
+      }
+    }
+  ]
+}

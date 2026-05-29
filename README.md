@@ -8,15 +8,14 @@ McCallister Guard er ikke enda et passivt alarmsystem. I stedet for å bare tute
 
 ## Funksjoner
 
-- **Tre moduser** — `Hjemme` (deaktivert), `Borte` (full overvåking + Kevin-simulering), `Skallsikring` (kun valgte perimeter-sensorer aktive — typisk når du sover)
+- **Fem moduser** — `Hjemme` (deaktivert), `Borte` (full overvåking + Kevin-simulering), `Skallsikring` (kun valgte perimeter-sensorer aktive — typisk når du sover), `Avskrekking` (lys-blink i reaksjonssone — advarselsfase), `Alarm` (full krise — sirene og strobe)
 - **Skallsikring med sensorvalg** — pek ut nøyaktig hvilke sensorer (ytterdører, vinduer, uteområder) som skal kunne utløse alarm ved Skallsikring; bevegelse innendørs ignoreres
 - **Inngangsforsinkelse (⏱) pr. sensor** — marker hoveddør/bakdør med ⏱ for å gi en `entry_delay`-nedtelling (default 30 s) ved åpning, slik at en autorisert bruker med kodelås/smart-lås rekker å deaktivere systemet før alarmen utløses
-- **Sone-basert avskrekking** — bevegelse i én sone trigger media i en annen «reaksjonssone» (matrise konfigurerbar per sone), så tyven aldri møter responsen sin der hen er
-- **Konfigurerbar lys-avskrekking** — appen blinker lys i reaksjonssonen med en sakte syklus (PÅ/AV-tid konfigurerbar pr. sone, default 15 sek hver vei). Samtidig fyrer den `deterrence_started`-triggeren slik at du fritt kan bygge en Homey-flow som spiller lyd/video/animasjoner via Chromecast, Sonos, Hue eller annet
-- **Bundlede media som flow-tokens** — `deterrence_started`-triggeren leverer ferdige URL-tokens til alle medfølgende lyder (bjeffende vakthund, politisirene, brannalarm, …) og videoer (blålys, politi-silhuett, stor hund). Dra-og-slipp inn i `Cast a URL`/`Cast a video` på Chromecast eller Sonos uten å hoste filene selv
+- **Sone-basert avskrekking** — bevegelse i én sone trigger avskrekking i en annen «reaksjonssone» (matrise konfigurerbar per sone), så tyven aldri møter responsen sin der hen er
+- **Konfigurerbar lys-avskrekking** — appen blinker lys i reaksjonssonen med en sakte syklus (PÅ/AV-tid konfigurerbar pr. sone, default 15 sek hver vei). Modus-endringer kan brukes i `mode_changed`-triggeren til å bygge egne Homey-flows
 - **Kevin-modus** — automatisk tilstedeværelses-simulering i Borte-modus (lys av/på i sannsynlig sekvens)
 - **Lys-autorisering** — manuell lysbruk under armert tilstand kan tolkes som «noen er hjemme» og deaktivere alarm
-- **Eskalering** — om avskrekking ikke får tyven til å snu, eskalerer alarmen til krise-nivå (full sirene, strobe på alle lys)
+- **Eskalering** — om avskrekking ikke får tyven til å snu, eskalerer systemet automatisk til Alarm-modus etter konfigurert tid (full sirene, strobe på alle lys)
 - **Falsk-alarm-filter** — flere uavhengige sensor-treff kreves før eskalering starter
 - **Flow-kort** — actions, conditions og triggers (inkl. `mode_changed` og `timestamp`-token) for full integrasjon med Homey-flows (push, SMS, kamera, naboalarmer)
 - **Homey Timeline-logging** — modus-bytter (Av/Borte/Skallsikring), avskrekking startet, alarm utløst/stoppet og krise-eskalering postes til Homey-app-en sin Timeline via `homey.notifications.createNotification`, parallelt med appens egen interne event-logg
@@ -43,14 +42,13 @@ flowchart TB
     STATUS[/status/]
     SETMODE[/set-mode/]
     TESTD[/test-deterrence/]
+    TESTA[/test-alarm/]
     STOP[/stop-alarm/]
-    PANIC[/panic/]
     SAVE[/settings/]
   end
 
   subgraph APP[McCallisterGuardApp]
-    SM[StateMachine - mode + entry/exit delay]
-    AS[alarmActive - state separat fra mode]
+    SM[StateMachine - 5 modi + entry/exit delay]
     FAF[FalseAlarmFilter - 90s konfidens]
     DE[DeterrenceEngine - reaksjonssone-matrise]
     MC[MediaCaster - blink_on/off pr sone]
@@ -81,7 +79,7 @@ flowchart TB
   APP -.leser.-> SETTINGS
   DEV -- alarm_motion / alarm_contact --> APP
   APP -- onoff blink --> DEV
-  APP -- alarm_triggered / alarm_stopped / deterrence_started / mode_changed / alarm_escalated --> FLOW
+  APP -- alarm_triggered / alarm_stopped / mode_changed / snapshot_taken / health_check_failed --> FLOW
   APP --> NOTIF
   SM --> AS
   DE --> MC
@@ -93,28 +91,29 @@ flowchart TB
 ```mermaid
 stateDiagram-v2
   [*] --> Hjemme
-  Hjemme --> Borte: setMode(armed_away)
+
+  Hjemme --> Borte: setMode(armed_away)\n(exit delay)
   Hjemme --> Skallsikring: setMode(armed_stay)
-
-  state Borte {
-    [*] --> ExitDelay
-    ExitDelay --> Aktiv: exit_delay utløpt
-    Aktiv --> EntryDelay: bevegelse / ⏱-dør åpnet
-    EntryDelay --> Aktiv: cancelEntryDelay (annen sensor)
-    EntryDelay --> Alarm: entry_delay utløpt
-    Alarm --> Eskalert: escalation_minutes utløpt
-  }
-
-  state Skallsikring {
-    [*] --> Vakt
-    Vakt --> StayEntryDelay: ⏱-dør åpnet
-    Vakt --> Alarm2: perimeter-sensor utløst (uten ⏱)
-    StayEntryDelay --> Alarm2: entry_delay utløpt
-    Alarm2 --> Eskalert2: escalation_minutes utløpt
-  }
+  Hjemme --> Avskrekking: testDeterrence()
+  Hjemme --> Alarm: testAlarm()
 
   Borte --> Hjemme: setMode(disarmed)
+  Borte --> Avskrekking: sensor utløst\n(entry delay → confirm)
+  Borte --> Alarm: testAlarm()
+
   Skallsikring --> Hjemme: setMode(disarmed)
+  Skallsikring --> Borte: setMode(armed_away)
+  Skallsikring --> Avskrekking: perimeter-sensor utløst
+  Skallsikring --> Alarm: testAlarm()
+
+  Avskrekking --> Alarm: escalation_minutes timer
+  Avskrekking --> Hjemme: stopAlarm() / setMode(disarmed)
+  Avskrekking --> Skallsikring: stopAlarm() (forrige modus)
+  Avskrekking --> Borte: stopAlarm() (forrige modus)
+
+  Alarm --> Hjemme: stopAlarm() / setMode(disarmed)
+  Alarm --> Skallsikring: stopAlarm() (forrige modus)
+  Alarm --> Borte: stopAlarm() (forrige modus)
 ```
 
 ### Sensor-rute — fra detektering til krise
@@ -122,28 +121,30 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
   S[Sensor utløst] --> M{mode}
-  M -- disarmed --> X1[Ignorer<br/>oppdater recentMotionZones]
-  M -- exit_delay aktiv --> X2[Ignorer<br/>bruker forlater huset]
+  M -- disarmed --> X1[Ignorer]
+  M -- deterrence --> X2[Oppdater reaksjonssone\nuten ny timer]
+  M -- alarm --> X3[Ignorer]
+  M -- exit_delay aktiv --> X4[Ignorer\nbruker forlater huset]
   M -- armed_stay --> SS{Perimeter-sensor?}
   M -- armed_away --> ED1{⏱ entry-delay-markert?}
-  SS -- nei --> X3[Ignorer<br/>innendørs bevegelse]
+  SS -- nei --> X5[Ignorer\ninnendørs bevegelse]
   SS -- ja --> ED2{⏱ entry-delay-markert?}
-  ED1 -- ja --> DELAY[startEntryDelay<br/>entry_delay sek]
+  ED1 -- ja --> DELAY[startEntryDelay\nentry_delay sek]
   ED1 -- nei --> MOTION_AWAY{Sensor type?}
   ED2 -- ja --> DELAY
-  ED2 -- nei --> FIRE_STAY[fireAlarm + escalation umiddelbart]
-  MOTION_AWAY -- motion --> MOT_DELAY[startEntryDelay<br/>entry_delay sek]
-  MOTION_AWAY -- contact --> CONFIRM[handleConfirmedMotion<br/>via false-alarm-filter]
+  ED2 -- nei --> ENTER_DET_STAY[enterDeterrence\nperimeter]
+  MOTION_AWAY -- motion --> MOT_DELAY[startEntryDelay\nentry_delay sek]
+  MOTION_AWAY -- contact --> CONFIRM[handleConfirmedMotion\nvia false-alarm-filter]
   DELAY --> WAIT{Bruker deaktiverer?}
   MOT_DELAY --> WAIT
-  WAIT -- ja --> X4[cancelEntryDelay<br/>ingen alarm]
+  WAIT -- ja --> X6[cancelEntryDelay\ningan alarm]
   WAIT -- nei, timer utløpt --> CONFIRM
-  CONFIRM --> FIRE[fireAlarmTriggered + DeterrenceEngine + EscalationManager]
-  FIRE_STAY --> ESC[Eskalering pågår]
-  FIRE --> ESC
-  ESC --> CRISIS{escalation_minutes utløpt?}
-  CRISIS -- ja --> KRISE[KRISE: full sirene + strobe + alarm_escalated]
-  CRISIS -- nei, bruker stopper --> STOP[alarm_stopped]
+  CONFIRM --> ENTER_DET[enterDeterrence\nmode = deterrence\nblink i reaksjonssone]
+  ENTER_DET_STAY --> ENTER_DET
+  ENTER_DET --> TIMER{escalation_minutes timer}
+  TIMER -- utløpt --> ALARM[enterAlarm\nmode = alarm\nEscalationManager.triggerCrisis]
+  TIMER -- bruker stopper --> STOP[stopAlarm\nreturn til previousArmedMode]
+  ALARM --> STOP2[stopAlarm\nreturn til previousArmedMode]
 ```
 
 ### Inngangsforsinkelse (⏱) — autorisert inngang med kodelås
@@ -179,24 +180,27 @@ sequenceDiagram
   else 30 s passerer
     SM->>App: handleConfirmedContact()
     App->>F: trigger alarm_triggered (alarm_type=entry_delay_timeout)
-    App->>F: trigger deterrence_started (lys + media-tokens)
+    App->>SM: setMode(deterrence)
   end
 ```
 
-### Avskrekkings-flow — innebygd lys + ekstern media via flow-trigger
+### Avskrekkings-flow — innebygd lys-blink og modus-endring
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant App as Guard App
+  participant SM as StateMachine
   participant DE as DeterrenceEngine
   participant MC as MediaCaster
   participant LIGHT as Lys i reaksjonssone
-  participant TRG as Flow-trigger<br/>deterrence_started
+  participant F as Flow-motor (mode_changed)
   participant UF as Bruker-bygget Homey-flow
-  participant CAST as Chromecast / Sonos / Samsung TV
 
-  Note over App,DE: Alarm bekreftet ELLER «Test avskrekking» trykket
+  Note over App,SM: Sensor utløst ELLER «Test avskrekking» trykket
+  App->>SM: setMode(deterrence)
+  SM->>App: handleModeChange(deterrence, previous)
+  App->>F: trigger mode_changed (mode_new=deterrence, mode_previous=armed_away)
   App->>DE: handleMotion(zoneId) / runDirect(zoneId)
   DE->>MC: startBlink(reaksjonssone)
   loop blink_on / blink_off pr. sone (default 15 s / 15 s)
@@ -205,12 +209,8 @@ sequenceDiagram
     MC->>LIGHT: onoff = false
     MC->>MC: vent blink_off sek
   end
-  DE->>TRG: trigger med zone + 8 media-URL-tokens<br/>(url_police_siren, url_blue_lights, …)
-  TRG->>UF: NÅR Avskrekking startet
-  UF->>UF: OG zone = «Stue» (valgfritt filter)
-  UF->>CAST: Cast a URL = [url_blue_lights]
-  Note over CAST: Spiller blålys-video / hund / sirene
-  Note over MC,CAST: LightAuthGuard er deaktivert i reaksjonssonen<br/>så flow-en kan trygt styre lys parallelt
+  F->>UF: NÅR Modus endret — SÅ (mode_new = deterrence)
+  Note over App,SM: Etter escalation_minutes → setMode(alarm)
 ```
 
 ## Komponenter
@@ -219,7 +219,7 @@ sequenceDiagram
 |---|---|
 | `app.ts` | Hovedklasse — orkestrering, sensor-listeners, alarm-state, entry-delay-routing for motion + ⏱-dører |
 | `StateMachine` | Modus + entry/exit delays (felles timer for både motion og ⏱-dører) |
-| `DeterrenceEngine` | Velger reaksjonssone fra `zone_matrix`, starter blink og fyrer `deterrence_started`-trigger med media-URL-tokens |
+| `DeterrenceEngine` | Velger reaksjonssone fra `zone_matrix` og starter lys-blink i reaksjonssonen |
 | `MediaCaster` | Lys-blink i reaksjonssonen med konfigurerbar PÅ/AV-syklus (`blink_on`/`blink_off` pr. sone, default 15 s / 15 s) |
 | `EscalationManager` | Timer fra alarm til full krise + strobe-rutine på alle lys |
 | `FalseAlarmFilter` | Krever (kontakt + bevegelse) eller bevegelse i to soner innen 90 s før eskalering |
@@ -236,18 +236,13 @@ sequenceDiagram
 | Kort | Tokens | Når |
 |---|---|---|
 | `alarm_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Generisk — fyres alltid uansett alarmtype |
-| `alarm_triggered_perimeter` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Kun Skallsikring-brudd (dør/vindu/perimeter-sensor i armed_stay) |
 | `alarm_triggered_intrusion` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Kun innendørs innbrudd i Borte-modus |
 | `alarm_triggered_entry_delay` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Kun inngangsforsinkelse utløpt (hoveddør ikke deaktivert) |
-| `alarm_triggered_panic` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Kun manuell panikk |
 | `alarm_stopped` | `zone`, `sensor`, `reason` | Generisk — fyres alltid uansett alarmtype |
-| `alarm_stopped_perimeter` | `zone`, `sensor`, `reason` | Kun Skallsikring-brudd alarm avsluttet |
 | `alarm_stopped_intrusion` | `zone`, `sensor`, `reason` | Kun innbruddsalarm (Borte) avsluttet |
 | `alarm_stopped_entry_delay` | `zone`, `sensor`, `reason` | Kun inngangsforsinkelse-alarm avsluttet |
-| `alarm_stopped_panic` | `zone`, `sensor`, `reason` | Kun panikkalarm avsluttet |
-| `mode_changed` | `mode_new`, `mode_previous` | Når systemet bytter modus (uavhengig av alarm) |
-| `deterrence_started` | `zone`, `url_police_siren`, `url_fire_alarm`, `url_alarm_beep`, `url_guard_dog`, `url_intruder_voice`, `url_blue_lights`, `url_cop_silhouette`, `url_large_dog` | Når avskrekking starter i en sone. URL-tokens peker på bundlede lyd-/videofiler som hostes lokalt av appen og kan brukes direkte i `Cast a URL`-actions |
-| `alarm_escalated` | — | Når eskalering når krise-nivå |
+| `mode_changed` | `mode_new`, `mode_previous` | Når systemet bytter modus — inkl. overgang til `deterrence` og `alarm` |
+| `snapshot_taken` | `zone`, `camera` | Når et kamera tar et snapshot ved alarm |
 | `health_check_failed` | `offline_count` | Når sensorer er offline ved aktivering |
 
 ### Conditions
@@ -263,7 +258,8 @@ sequenceDiagram
 | Kort | Effekt |
 |---|---|
 | `set_mode` | Sett modus til Hjemme / Borte / Skallsikring |
-| `trigger_panic` | Utløs panikk-alarm umiddelbart |
+| `trigger_deterrence` | Test avskrekking direkte i valgt sone |
+| `trigger_alarm` | Test full alarm (eskalering) |
 
 
 ## Alarmtyper — forgren flow per alarmklasse
@@ -275,7 +271,6 @@ Velg rett trigger-kort direkte i flow-editoren:
 | **Skallsikring-brudd oppdaget** | Dør/vindu/perimeter-sensor åpnet i Skallsikring |
 | **Innbrudd oppdaget (Borte)** | Innendørs bevegelse/kontakt i Borte-modus |
 | **Inngangsforsinkelse utløpt** | ⏱-merket hoveddør ikke deaktivert i tide |
-| **Panikk utløst** | Manuell panikk-knapp eller `trigger_panic`-action |
 
 ### Typisk reaksjon per alarmtype
 
@@ -284,7 +279,6 @@ Velg rett trigger-kort direkte i flow-editoren:
 | `perimeter` | Dør/vindu åpnet eller bevegelse på perimeter-sensor i **Skallsikring** | Lokal varsling (lyd i gangen, blink ute), varsle kun deg — du er antakelig hjemme |
 | `intrusion` | Bevegelse/kontakt i **Borte** etter false-alarm-bekreftelse | Full push til alle, kamera-snapshot, kraftig avskrekking |
 | `entry_delay_timeout` | Hoveddør (Borte) ikke deaktivert innen nedtellingen | Push «Var det deg? Deaktiver nå», deretter full eskalering |
-| `panic` | Manuell panikk eller `trigger_panic`-action | Umiddelbar krise-eskalering, ring nødkontakt |
 
 ### Eksempel-flows
 
@@ -299,119 +293,57 @@ SÅ   Push til ALLE i husstanden
      Ta kamera-snapshot
      Start sirene + blink i hele huset
 
-NÅR  Panikk utløst                         ← dedikert trigger-kort
+NÅR  Alarm aktivert                          ← mode_changed (mode_new = alarm)
 SÅ   Ring nødkontakt via IFTTT/SMS
      Send push med høyest prioritet til alle
 ```
 
 
-## Sett opp en avskrekkings-flow
+## Sett opp flows basert på modus-endringer
 
-Når avskrekking starter i en sone — enten utløst av reell bevegelse eller via «Test avskrekking»-knappen i
-Soneoversikten — gjør appen to ting:
-
-1. **Innebygd lys-blink** i reaksjonssonen (sakte PÅ/AV-syklus, default 15 sek hver vei, justerbart pr. sone).
-2. **Fyrer flow-triggeren `deterrence_started`** med 9 tokens: `zone` + 8 ferdige, absolutte URL-er til lyd-
-   og videofiler som ligger bundlet med appen og hostes lokalt på Homey-en.
-
-Du trenger ikke gjøre noe annet for å få lys-blinkingen. Men hvis du vil legge til lyd, video, push, SMS eller
-annet, bygger du selv en Homey-flow som lytter på `deterrence_started`.
-
-### Tilgjengelige media-URL-tokens
-
-Alle URL-ene leveres som ferdige `http://<homey-ip>/app/com.mccallister.guard/assets/media/<fil>`-strenger og
-oppdateres automatisk hvis Homey-en bytter IP. Bare dra tokenet rett inn i URL-feltet på en cast-action.
-
-| Token | Type | Fil | Innhold |
-|---|---|---|---|
-| `url_police_siren` | Lyd | `police-siren.ogg` | Politisirene |
-| `url_fire_alarm` | Lyd | `fire-alarm.ogg` | Brannalarm |
-| `url_alarm_beep` | Lyd | `alarm-beep.ogg` | Alarm-pip |
-| `url_guard_dog` | Lyd | `guard-dog.ogg` | Vakthund som bjeffer |
-| `url_intruder_voice` | Lyd | `intruder-voice.m4a` | Stemme-advarsel mot inntrenger |
-| `url_blue_lights` | Video | `blue-lights.mp4` | Blålys (politi-effekt i vindu) |
-| `url_cop_silhouette` | Video | `cop-silhouette.mp4` | Silhuett av politibetjent |
-| `url_large_dog` | Video | `large-dog.mp4` | Stor hund i vindu |
+Systemet har fem modi: `disarmed`, `armed_away`, `armed_stay`, `deterrence`, `alarm`. Overganger mellom disse
+fyrer alltid `mode_changed`-triggeren med `mode_new` og `mode_previous` som tokens.
 
 ### Generelt mønster
 
 I Flow-editoren (`Homey-appen → Flows → Ny flow`):
 
-1. **NÅR** — `McCallister Guard → Avskrekking startet i sone`
-2. **OG** *(valgfritt)* — `Logikk → Tekst er lik` med token `[zone]` lik navnet på sonen du vil filtrere på.
-   Lager du én flow pr. sone, kan du hoppe over dette steget og heller bruke `[zone]`-tokenet til å velge
-   riktig destinasjons-enhet inne i actionen.
-3. **SÅ** — en cast/play-action fra Chromecast-, Sonos-, Samsung TV- eller Hue-appen. Lim inn ett av URL-tokenene
-   over i URL-feltet på actionen.
+1. **NÅR** — `McCallister Guard → Modus endret`
+2. **OG** *(valgfritt)* — filtrer på `[mode_new]` eller `[mode_previous]` for å reagere på spesifikke overganger.
+3. **SÅ** — kjør ønsket handling (push, SMS, tenn lys, aktiver scene, o.l.)
 
-### Eksempel 1 — blålys-video på Chromecast i stua
+### Eksempel 1 — push når avskrekking starter
 
 ```text
-NÅR  McCallister Guard → Avskrekking startet i sone
-OG   Logikk → Tekst er lik     [zone] === "Stue"
-SÅ   Google Chromecast (Stue-TV) → Cast a video
-       URL: [url_blue_lights]
-```
-
-### Eksempel 2 — vakthund-bjeffing på Sonos overalt
-
-```text
-NÅR  McCallister Guard → Avskrekking startet i sone
-SÅ   Sonos (Hele huset) → Play a URL
-       URL:    [url_guard_dog]
-       Volum:  80 %
-```
-
-### Eksempel 3 — stemme-advarsel på Nest Hub i gangen
-
-```text
-NÅR  McCallister Guard → Avskrekking startet i sone
-OG   Logikk → Tekst er lik     [zone] === "Gang"
-SÅ   Google Chromecast (Nest Hub Gang) → Cast a URL
-       URL: [url_intruder_voice]
-```
-
-### Eksempel 4 — politi-silhuett på Samsung TV (med automatisk på-slag)
-
-```text
-NÅR  McCallister Guard → Avskrekking startet i sone
-OG   Logikk → Tekst er lik     [zone] === "Stue"
-SÅ-1 Samsung TV (Stue) → Send key   KEY_POWER
-SÅ-2 Vent 3 sekunder
-SÅ-3 Samsung TV (Stue) → Cast a URL
-       URL: [url_cop_silhouette]
-```
-
-### Eksempel 5 — push med dyplenke til kamera
-
-```text
-NÅR  McCallister Guard → Avskrekking startet i sone
+NÅR  McCallister Guard → Modus endret
+OG   mode_new = deterrence
 SÅ   Homey → Send a push notification
-       Tittel:  🚨 Avskrekking i [zone]
+       Tittel:  Avskrekking aktiv
        Tekst:   Lys blinker. Sjekk kamera i Homey-appen.
+```
+
+### Eksempel 2 — ring nødkontakt ved full alarm
+
+```text
+NÅR  McCallister Guard → Modus endret
+OG   mode_new = alarm
+SÅ   Ring nødkontakt via IFTTT/SMS
+     Send push med høyest prioritet til alle
+```
+
+### Eksempel 3 — logg modus-historikk
+
+```text
+NÅR  McCallister Guard → Modus endret
+SÅ   Google Sheet → Legg til rad: [mode_new], [mode_previous], [tidspunkt]
 ```
 
 ### Test og feilsøking
 
-- **Test-knappen i Soneoversikten** fyrer `deterrence_started` på nøyaktig samme måte som en reell alarm —
-  perfekt for å sjekke at flowen din plukker opp triggeren.
-- I **Event Log** vil du se en linje
-  `Flow-trigger «deterrence_started» fyrt for sone <id> (8 media-URL tokens).` like etter triggering — dette
-  er bekreftelse på at appen leverte triggeren med tokens. Om en lyttende flow finnes som plukker den opp,
-  er Athom sitt ansvar; vi har levert vår del.
-- URL-tokenene er statiske pr. installasjon. Hvis Homey-en din bytter IP, regenereres tokenene automatisk
-  ved neste app-restart — du trenger ikke endre flowene dine.
-- Hvis URL-en feiler (Chromecast offline, audio-format ikke støttet o.l.) skjer det stille i tredjeparts-appen.
-  Lys-blinkingen kjører uansett, så avskrekkingen virker fortsatt.
-
-### Hva tokenene faktisk peker på
-
-Alle filer ligger i `assets/media/` i app-pakken. Når Homey laster appen, eksponeres katalogen automatisk
-på `http://<homey-ip>/app/com.mccallister.guard/assets/media/`. Dette er en standard Homey-mekanisme — du
-kan teste en URL ved å åpne den i nettleseren (forutsatt at du er på samme nettverk som Homey-en).
-
-Filene er bevisst korte (10–30 sek) for å fungere bra som «alarm-loop» i Chromecast/Sonos-actions som
-spiller URL-en én gang. Vil du ha en lengre loop, kombiner flere actions med «Vent N sekunder» mellom.
+- **«Test avskrekking»-knappen** i Soneoversikten setter systemet i `deterrence`-modus direkte — bruk den for å
+  verifisere at flows som lytter på `mode_changed` (mode_new = deterrence) fungerer.
+- **«Test alarm»-knappen** i Soneoversikten setter systemet i `alarm`-modus og stopper etter 15 sekunder.
+- I **Event Log** ser du alltid en linje `Modus endret: X → Y` ved hvert modus-bytte.
 
 
 ## Installasjon
@@ -448,13 +380,9 @@ homey app install
    rapporterer autorisert opplåsing — da utløses ingen alarm i det hele tatt, og inngangsforsinkelsen er
    fallback hvis flowen feiler.
 6. **Lys-avskrekking pr. sone:** appen blinker lys i reaksjonssonen med en sakte PÅ/AV-syklus (default
-   15 sek hver vei, justerbart pr. sone under «Lys på (sek)» / «Lys av (sek)»). Vil du i tillegg spille av
-   lyd/video på Chromecast, Sonos, Nest Hub e.l., bygger du selv en Homey-flow i Flow-editoren som lytter på
-   `Avskrekking startet i en sone` (`deterrence_started`-triggeren) med filter på riktig `zone`. Triggeren
-   leverer ferdige URL-tokens (`url_police_siren`, `url_guard_dog`, `url_blue_lights`, …) som peker på
-   bundlede lyd-/videofiler — dra dem rett inn i `Cast a URL`/`Cast a video`-actions, så slipper du å hoste
-   mediene selv. Lys-vakta (`LightAuthGuard`) er deaktivert mens avskrekking pågår, så en ekstern flow kan
-   trygt styre lys i sonen samtidig.
+   15 sek hver vei, justerbart pr. sone under «Lys på (sek)» / «Lys av (sek)»). Lys-vakta (`LightAuthGuard`)
+   er deaktivert mens avskrekking pågår, så en ekstern flow kan trygt styre lys i sonen samtidig. Bruk
+   `mode_changed`-triggeren (mode_new = deterrence) for egne flows som reagerer på avskrekking.
 7. Sett **Borte-modus** når du forlater huset, eller bruk `set_mode`-actionen fra en flow (geofence, bryter,
    stemme). Bruk `mode_changed`-trigger til logging eller automatikk rundt modus-bytter.
 
@@ -532,14 +460,11 @@ Dette er en bevisst arkitektonisk grense fra Athom — eller en bug — men resu
 
 Vi har også verifisert at `cast_url`-capability ikke er eksponert på Chromecast-/Samsung TV-enheter i praksis — bare på et lite knippe driver-implementasjoner (typisk LG WebOS og enkelte projektor-apper).
 
-### Hva vi gjorde i stedet — «Deterrent Flow»
+### Hva vi gjorde i stedet — modus-basert integrasjon
 
-Pivoten ble løsning A: **appen fyrer alltid `deterrence_started`-triggeren når avskrekking starter i en sone, og brukeren bygger valgfritt sin egen flow** som plukker den opp. Flow-en lytter på:
+Pivoten ble løsning A: **systemet bytter modus til `deterrence` når avskrekking starter, og brukeren bygger valgfritt sin egen flow** som reagerer på `mode_changed` (mode_new = deterrence). Flow-en kan da kjøre `Cast a video` / `Cast a website` på Chromecast eller `Send key` på Samsung TV.
 
-1. `Avskrekking startet i en sone` med filter på riktig `zone`.
-2. Kjører `Cast a video` / `Cast a website` på Chromecast eller `Send key` på Samsung TV — gjerne med en av URL-tokenene triggeren leverer (`url_guard_dog`, `url_police_siren`, `url_blue_lights`, …) som peker på bundlede mediefiler som appen hoster lokalt.
-
-Innebygd lys-avskrekking (`MediaCaster.startBlink` — sakte PÅ/AV-syklus på lys-enheter i reaksjonssonen, default 15 sek hver vei, konfigurerbart pr. sone) **kjører alltid** når avskrekking starter. Dette gir et fornuftig system out-of-the-box og sikrer at brukeren får visuell avskrekking selv om Chromecast-en er offline, flowen er deaktivert eller URL-en feiler.
+Innebygd lys-avskrekking (`MediaCaster.startBlink` — sakte PÅ/AV-syklus på lys-enheter i reaksjonssonen, default 15 sek hver vei, konfigurerbart pr. sone) **kjører alltid** når avskrekking starter. Dette gir et fornuftig system out-of-the-box og sikrer at brukeren får visuell avskrekking selv om Chromecast-en er offline eller flowen er deaktivert.
 
 Mens avskrekking pågår, deaktiveres lys-vakta (`LightAuthGuard`) for reaksjonssonen, slik at en ekstern flow trygt kan styre lys i sonen parallelt med blinkingen uten å trigge «manuell lysbruk = noen er hjemme»-logikken.
 
@@ -553,16 +478,16 @@ Underveis har vi ryddet bort funksjonalitet som **virket riktig på papiret, men
 
 | Funksjon vi prøvde | Hvorfor det ikke fungerer på Homey | Hva vi gjør i stedet |
 |---|---|---|
-| **Direkte cast av lyd/video til Chromecast / Nest Hub / Samsung TV fra app-kode** | Tredjepartsappers flow-actions (`Cast a URL`, `Cast a video`, `sendKey`) er kun eksponert via Flow-editorens interne grensesnitt, ikke via Web API, HomeyScript eller app-til-app-kall. | Brukeren bygger en flow med `deterrence_started`-triggeren og rute selv til Chromecast-actionen. URL-tokens for bundlede mediefiler leveres på triggeren. |
-| **Per-sone lyd-URL og video-URL i settings (`zone_audio_urls`, `zone_video_urls`)** | Det fantes ingen pålitelig måte å spille av disse på i runtime — `cast_url`-capability er nesten aldri eksponert på Chromecast-/Samsung-enheter. Feltene ble bare et løfte vi ikke kunne innfri. | Fjernet helt. Brukeren legger URL inn i sin egen flow-action; vi tilbyr ferdige URL-tokens for våre bundlede filer. |
+| **Direkte cast av lyd/video til Chromecast / Nest Hub / Samsung TV fra app-kode** | Tredjepartsappers flow-actions (`Cast a URL`, `Cast a video`, `sendKey`) er kun eksponert via Flow-editorens interne grensesnitt, ikke via Web API, HomeyScript eller app-til-app-kall. | Brukeren bygger en flow som lytter på `mode_changed` (mode_new = deterrence) og ruter selv til Chromecast-actionen. |
+| **Per-sone lyd-URL og video-URL i settings (`zone_audio_urls`, `zone_video_urls`)** | Det fantes ingen pålitelig måte å spille av disse på i runtime — `cast_url`-capability er nesten aldri eksponert på Chromecast-/Samsung-enheter. Feltene ble bare et løfte vi ikke kunne innfri. | Fjernet helt. Brukeren legger URL inn i sin egen flow-action. |
 | **Globalt «Standard lyd-URL»-felt (`custom_audio_url`)** | Samme begrensning — vi kunne ikke kalle noen action for å spille den av. | Fjernet helt. |
 | **Cast-enhet-prioritering pr. sone (`cast_devices`, `CastPriority`-modul)** | Vi kunne ranke devices, men ikke faktisk pushe innhold til dem programmatisk. Ren UI uten effekt. | Fjernet helt. `Capabilities`-modulen rapporterer fortsatt at en sone har skjerm/høyttaler i info-badgen, men plukker ikke lenger ut «beste» device. |
 | **Auto-generere Homey-flows programmatisk fra app-kode** | `homey:manager:api`-permission gir custom apper kun `homey.flow.readonly` — ingen `create`/`update` på flows. | Brukeren må manuelt opprette en avskrekkings-flow. Vi dokumenterer mønsteret tydelig i sone-UI og README. |
-| **HomeyScript-bro for å kalle tredjepartsappers actions** (`homey.flow.runFlowCardAction({ uri, id, args })`) | Selv HomeyScript med fulle bruker-scopes returnerer `Not Found: FlowCardAction with ID …` på alle 1044 testede uri/id-kombinasjoner mot Chromecast/Samsung. Funksjonen er praksis dead-end for custom apper. | Forkastet. Trigger-kort + bruker-flow er den eneste fungerende broen. |
+| **HomeyScript-bro for å kalle tredjepartsappers actions** (`homey.flow.runFlowCardAction({ uri, id, args })`) | Selv HomeyScript med fulle bruker-scopes returnerer `Not Found: FlowCardAction with ID …` på alle 1044 testede uri/id-kombinasjoner mot Chromecast/Samsung. Funksjonen er praksis dead-end for custom apper. | Forkastet. Modus-endringer via `mode_changed`-triggeren + bruker-flow er den eneste fungerende broen. |
 | **Bruke `speaker_playing`-capability for å resume cast-sesjon** | Kun å resume en eksisterende sesjon, ikke å velge URL/innhold. Ubrukelig for å starte en avskrekking. | Forkastet. |
 | **Embedde `castv2-client` / Tizen-protokoll direkte i appen** | Krever IP-discovery (vi har bare Homey-device-ID), parallell vedlikehold når Google/Samsung endrer protokollen, separat implementasjon pr. plattform — bryter Athoms anbefalte arkitektur. | Vurdert og forkastet. Ikke verdt det. |
-| **Cast-skjermer-info-banner pr. sone** (advarsel om at oppdaget skjerm ikke støtter direkte cast) | Ble misvisende — vi sa «bruk en Homey-flow» uten å gi brukeren noe sted å klikke. | Fjernet. `deterrence_started`-triggeren er det offisielle integrasjonspunktet for brukerens egne flows. |
-| **Programmatisk velge / kjøre en spesifikk Homey-flow fra app-kode** (per-sone dropdown med flow-ID som ble lagret i `deterrent_flows`) | Det finnes **ingen `runFlow(flowId)`-API for tredjepartsapper** på Homey. `homey.flow.getFlows()` er `readonly`, og det finnes ingen imperativ måte å fyre en valgt flow fra koden. | Helt fjernet. Appen fyrer kun `deterrence_started`-triggeren — brukerens flow lytter selv. `getFlows`-API-endepunktet (`/flows`) er fjernet. |
+| **Cast-skjermer-info-banner pr. sone** (advarsel om at oppdaget skjerm ikke støtter direkte cast) | Ble misvisende — vi sa «bruk en Homey-flow» uten å gi brukeren noe sted å klikke. | Fjernet. `mode_changed`-triggeren er det offisielle integrasjonspunktet for brukerens egne flows. |
+| **Programmatisk velge / kjøre en spesifikk Homey-flow fra app-kode** (per-sone dropdown med flow-ID som ble lagret i `deterrent_flows`) | Det finnes **ingen `runFlow(flowId)`-API for tredjepartsapper** på Homey. `homey.flow.getFlows()` er `readonly`, og det finnes ingen imperativ måte å fyre en valgt flow fra koden. | Helt fjernet. Systemet endrer modus — brukerens flow lytter på `mode_changed`. `getFlows`-API-endepunktet (`/flows`) er fjernet. |
 | **«Jeg har laget en ekstern flow»-avkrysning pr. sone** (boolean i `deterrent_flows`) | Avkrysningen styrte kun om `LightAuthGuard` skulle «la flowen overta» lyset. I praksis var dette unødvendig kompleksitet: lys-vakta er uansett deaktivert mens avskrekking pågår, så en parallell flow kan trygt styre lys uansett. | Fjernet. Innstillingene har nå kun «Lys på (sek)» / «Lys av (sek)» pr. sone for å justere blink-tempoet (default 15/15). `deterrent_flows`-feltet er borte; gamle verdier ignoreres. |
 | **600 ms strobing** | Tidligere blinket lysene 600 ms av/på som en politilys-effekt. Det fungerte teknisk, men ga ofte hørbar klikke-lyd i relébaserte enheter, akselererte slitasje på Hue/IKEA-pærer og gjorde at noen sone-til-zigbee-broer droppet kommandoer pga. trafikk. | Erstattet med en sakte PÅ/AV-syklus styrt av `blink_on`/`blink_off` pr. sone (default 15 sek hver vei, justerbart i Soneoversikten). |
 | **«Blinke med alle enheter som har `onoff`»** | Tidligere filter krevde bare `onoff`-capability + ikke-sensor. Resultatet var at varmekabler, panelovner, frysere, smartplugger, vifter og TV-er ble forsøkt strobet under avskrekking — uønsket og potensielt skadelig. | Strikt filter: `isLight()` krever nå `device.class === 'light'` i tillegg til `onoff`. Brukt konsekvent i `MediaCaster.startLightStrobe`/`stopZone`, `SimulationEngine` (Kevin-syklus), `LightAuthGuard.handleOnOffChange`, og listener-registrering i `app.ts`. Hvis en smartplugg skal kunne brukes som lys (f.eks. juletre), endre `class` til `light` i Homey-enhetens innstillinger. |
@@ -570,9 +495,114 @@ Underveis har vi ryddet bort funksjonalitet som **virket riktig på papiret, men
 
 ### Hvor vises bildene fra snapshot-loopen?
 
-I dag: **kun som en tekst-notifikasjon i Homey-app-en** («📷 Snapshot fra Kamera-stua»), uten selve bildet vedlagt. Selve bilde-objektet (`device.images[0]`) hentes fra kameraet, men Homey-platformens `notifications.createNotification`-API tar kun tekst (`excerpt`) — den støtter ikke å feste et image-token. Det betyr at appen i nåværende implementasjon ikke selv lagrer eller eksponerer snapshotene noe sted brukeren kan bla i dem.
+Bilder lagres til `/userdata/snapshots/alarm/` og `/userdata/snapshots/motion/` og vises i **Bilder**-fanen i settings-UI. Homey-platformens `notifications.createNotification`-API tar kun tekst — den støtter ikke å feste et bilde direkte. Ønsker du å sende bildene eksternt (Telegram, e-post, Dropbox), må du bygge en flow som lytter på en `snapshot_taken`-trigger med et image-token.
 
-Ønsker du faktisk å se bildene, må de eksponeres via en flow — typisk ved at vi legger snapshotet som en `image`-token på en ny `snapshot_taken`-trigger som brukeren kan rute til Telegram, e-post eller Homey Timeline. Dette er ikke implementert ennå; si fra hvis du vil at vi legger det på.
+---
+
+## Kamera-snapshot — alt vi har prøvd og hvorfor det ikke fungerer
+
+Et viktig mål var å ta bilder fra kameraer ved alarm og bevegelse. Det viste seg vesentlig vanskeligere enn forventet på Homey-plattformen. Alt vi har testet er dokumentert nedenfor slik at vi ikke gjentar det.
+
+### Oversikt over forsøk
+
+| # | Tilnærming | Resultat |
+|---|---|---|
+| 1 | `device.images[0].url` — lese bilde-URL direkte fra enhetsobjektet | Feiler — feltet er tomt i alle tilfeller vi har testet |
+| 2 | `homeyApi.images.getImage({ id })` — hente ett bilde via ManagerImages | Feiler — metoden eksisterer ikke i HomeyAPIV3Local |
+| 3 | `homeyApi.images.getImages()` + `ownerUri`-matching | Delvis — virker kun hvis kamera-driveren kaller `device.setCameraImage()` |
+| 4 | Direkte HTTP-nedlasting med Bearer-token | Virker teknisk, men krever en gyldig URL fra tilnærming 1–3 |
+| 5 | `image.getStream()` på bilde-objekter fra lokal API | Feiler — objektene er tomme JSON-stubs uten metoder |
+
+### Detaljer per forsøk
+
+#### 1. `device.images[0].url`
+
+Det naturlige første steget var å lese `device.images` direkte fra enhetsobjektet som `homeyApi.devices.getDevices()` returnerer.
+
+**Hva vi fant:** `HomeyAPIV3Local`-spesifikasjonen definerer `device.images` som en array av *tomme objekter* (`properties: {}`, `additionalProperties: false`). Feltet finnes i svaret, men innholdet er alltid tomt — ingen `url`, ingen `id`, ingen noe. Dette er ikke en dokumentasjonsfeil; det er faktisk slik Web API-en serialiserer enhetens bilde-liste i lokal modus.
+
+**Konklusjon:** Ubrukelig for å hente URL.
+
+---
+
+#### 2. `homeyApi.images.getImage({ id })`
+
+Vi forsøkte å bruke `ManagerImages.getImage()` til å hente et enkelt bilde med kjent ID (fra `device.images`-lista).
+
+**Hva vi fant:** Metoden eksisterer ikke. `HomeyAPIV3Local.ManagerImages` har *kun* `getImages()` (flertall — henter alle). Det finnes ingen `getImage()`-metode for å hente ett og ett bilde.
+
+**Konklusjon:** Kan ikke brukes.
+
+---
+
+#### 3. `homeyApi.images.getImages()` + `ownerUri`-matching
+
+Homeys standardiserte kamera-system fungerer slik:
+
+1. Kamera-driveren kaller `device.setCameraImage(image, 'front', 'Frontkamera')`.
+2. Bildet registreres i `ManagerImages` med `ownerUri: "homey:device:{deviceId}"`.
+3. Bildet er tilgjengelig via `GET /api/manager/images/image/{imageId}`.
+
+Vi implementerte en oppslagstabell: hent alle bilder med `getImages()`, bygg en map `deviceId → imageUrl` basert på `ownerUri`, og bruk denne når vi vet kamera-ID-en.
+
+**Kode (`CameraManager.refreshZoneCache`):**
+```typescript
+const allImages = await this.homeyApi.images.getImages();
+for (const img of Object.values(allImages)) {
+  const match = img.ownerUri?.match(/^homey:device:(.+)$/);
+  if (match) deviceImageUrl.set(match[1], img.url);
+}
+```
+
+**Hva vi fant:** Fungerer *bare* hvis kamera-driveren faktisk kaller `device.setCameraImage()`. For kameraene vi testet (bl.a. «Kamera Hall») er det ingenting i `getImages()`-svaret som matcher enheten — driveren registrerer ingen bilder i ManagerImages. Dette er et driverproblem, ikke noe vi kan omgå fra app-koden.
+
+**Konklusjon:** Riktig tilnærming for kameraer med standard Homey-driver. Feiler stille for kameraer som ikke implementerer `setCameraImage()`.
+
+---
+
+#### 4. Direkte HTTP-nedlasting med Bearer-token
+
+Siden `homeyApi`-SDK-et ikke gir oss bilde-data direkte, forsøkte vi å laste ned JPEG-en via HTTP med Homeys eget lokale API.
+
+**Flyt:**
+```
+1. homey.api.getLocalUrl()       → base-URL (f.eks. "http://192.168.x.x")
+2. homey.api.getOwnerApiToken()  → Bearer-token
+3. fetch(baseUrl + imageUrl, { Authorization: `Bearer ${token}` })
+4. Buffer.from(await response.arrayBuffer()) → JPEG-buffer → skriv til /userdata/
+```
+
+**Hva vi fant:** Mekanismen virker teknisk sett. Men den forutsetter at vi allerede har en gyldig `imageUrl` fra tilnærming 1, 2 eller 3 — og det har vi ikke når ingen av dem returnerer en URL. Feilmeldingen er da «ingen bilde-URL konfigurert» (før HTTP-kallet i det hele tatt skjer).
+
+**Konklusjon:** Riktig nedlastingsmekanisme. Avhengig av at URL-en kan løses opp fra et av de andre stegene.
+
+---
+
+#### 5. `image.getStream()` på bilde-objekter fra lokal API
+
+I `HomeyAPI`-SDK-et finnes det en `Image`-klasse med en `getStream()`-metode som returnerer en Node.js-stream. Vi prøvde å kalle denne på bilde-objektene vi fikk tilbake fra `getImages()`.
+
+**Hva vi fant:** Image-objektene fra `HomeyAPIV3Local` er rene JSON-stubs — de er *ikke* instanser av `Image`-klassen. De har ingen metoder; bare feltene `id`, `url`, `ownerUri` og `lastUpdated`. `getStream()` eksisterer ikke på disse objektene.
+
+`getStream()` finnes kun på `Image`-instanser du selv oppretter via `this.homey.images.createImage()` — altså bilder du produserer fra appen, ikke bilder du henter fra eksterne enheter.
+
+**Konklusjon:** Kan ikke brukes for å hente snapshot fra kamera.
+
+---
+
+### Rotårsak
+
+Det finnes **ingen standardisert, garantert API** i Homey Web API v3 Local for å hente et snapshot fra et vilkårlig kamera. Alt avhenger av at kamera-driveren frivillig implementerer `device.setCameraImage()`. Gjør den ikke det, er det ingenting en tredjepartsapp kan gjøre.
+
+Homey App Store-siden for en kamera-app vil typisk si «støtter snapshot» eller liste `camera`-capability — sjekk dette før du velger kamera-app.
+
+### Hva vi gjør nå
+
+`CameraManager` bruker tilnærming 3 (ownerUri-matching) som primær kilde og tilnærming 1 (device.images fallback) som sekundær. Nedlastingen skjer via tilnærming 4 (direkte HTTP). Dersom ingen URL finnes, logges en advarsel og kameraet hoppes over stille.
+
+For kameraer som ikke støtter Homeys native snapshot-API kan en mulig workaround være å legge inn en manuell RTSP/HTTP-snapshot-URL direkte i innstillingene (ikke implementert per nå — meld fra om det er ønsket).
+
+---
 
 ### Kjente begrensninger som **fortsatt** gjelder (uten kjent workaround per i dag)
 
