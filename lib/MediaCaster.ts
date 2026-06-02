@@ -2,7 +2,6 @@
 
 import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
-import type LightAuthGuard from './LightAuthGuard';
 import { isLight } from './Capabilities';
 import { DEFAULT_BLINK_SECONDS, GuardSettings } from './types';
 
@@ -23,7 +22,6 @@ export default class MediaCaster {
     private readonly homey: Homey,
     private readonly homeyApi: any,
     private readonly log: EventLog,
-    private readonly lightAuth: LightAuthGuard,
     private readonly getSettings: () => GuardSettings,
   ) { }
 
@@ -45,7 +43,6 @@ export default class MediaCaster {
       try { await task.stop(); } catch { /* best-effort */ }
       for (const light of task.lights) {
         try {
-          this.lightAuth.registerOwnCommand(light.id, false);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
         } catch { /* best-effort */ }
       }
@@ -70,7 +67,6 @@ export default class MediaCaster {
     }
     for (const light of task.lights) {
       try {
-        this.lightAuth.registerOwnCommand(light.id, false);
         await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
       } catch { /* best-effort */ }
     }
@@ -102,7 +98,6 @@ export default class MediaCaster {
       // Fire all lights in parallel to reduce latency and CPU time.
       await Promise.all(lights.map(async (light) => {
         try {
-          this.lightAuth.registerOwnCommand(light.id, true);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: true });
           if (light.capabilities.includes('light_hue')) {
             await light.setCapabilityValue({ capabilityId: 'light_hue', value: hue });
@@ -120,7 +115,6 @@ export default class MediaCaster {
     const turnOff = async (): Promise<void> => {
       await Promise.all(lights.map(async (light) => {
         try {
-          this.lightAuth.registerOwnCommand(light.id, false);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
         } catch { /* best-effort */ }
       }));

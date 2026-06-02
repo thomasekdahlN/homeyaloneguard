@@ -4,7 +4,6 @@ import Homey from 'homey';
 import { HomeyAPI } from 'homey-api';
 import EventLog from './lib/EventLog';
 import StateMachine from './lib/StateMachine';
-import LightAuthGuard from './lib/LightAuthGuard';
 import MediaCaster from './lib/MediaCaster';
 import DeterrenceEngine from './lib/DeterrenceEngine';
 import FalseAlarmFilter from './lib/FalseAlarmFilter';
@@ -21,7 +20,6 @@ class McCallisterGuardApp extends Homey.App {
   public homeyApi!: any;
   public eventLog!: EventLog;
   public stateMachine!: StateMachine;
-  public lightAuth!: LightAuthGuard;
   public media!: MediaCaster;
   public deterrence!: DeterrenceEngine;
   public falseAlarm!: FalseAlarmFilter;
@@ -57,12 +55,11 @@ class McCallisterGuardApp extends Homey.App {
       McCallisterGuardApp.ZONE_CACHE_REFRESH_MS,
     );
     this.stateMachine = new StateMachine(this.homey, this.eventLog);
-    this.lightAuth = new LightAuthGuard(this.homeyApi, this.eventLog);
-    this.media = new MediaCaster(this.homey, this.homeyApi, this.eventLog, this.lightAuth, () => this.getSettings());
+    this.media = new MediaCaster(this.homey, this.homeyApi, this.eventLog, () => this.getSettings());
     this.deterrence = new DeterrenceEngine(this.homey, this.eventLog, this.media, () => this.getSettings());
     this.falseAlarm = new FalseAlarmFilter();
-    this.escalation = new EscalationManager(this.homey, this.homeyApi, this.eventLog, this.lightAuth);
-    this.simulation = new SimulationEngine(this.homey, this.homeyApi, this.eventLog, this.lightAuth, () => this.getSettings());
+    this.escalation = new EscalationManager(this.homey, this.homeyApi, this.eventLog);
+    this.simulation = new SimulationEngine(this.homey, this.homeyApi, this.eventLog, () => this.getSettings());
     this.cameras = new CameraManager(this.homey, this.homeyApi, this.eventLog, () => this.getSettings());
 
     // Before an alarm-burst, turn on all lights in the motion zone so the camera captures a lit scene.
@@ -71,16 +68,9 @@ class McCallisterGuardApp extends Homey.App {
       const lights = (Object.values(devices) as any[]).filter((d) => d.zone === zoneId && isLight(d));
       for (const light of lights) {
         try {
-          this.lightAuth.registerOwnCommand(light.id, true);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: true });
         } catch { /* best-effort */ }
       }
-    });
-
-    this.lightAuth.setActivePredicate(() => {
-      // Guard lights only while armed (not during deterrence/alarm — app controls lights then)
-      const m = this.stateMachine.getMode();
-      return m === 'armed_perimeter' || m === 'armed';
     });
 
     this.stateMachine.onModeChange((next, previous) => this.handleModeChange(next, previous));
@@ -592,13 +582,7 @@ class McCallisterGuardApp extends Homey.App {
           if (value === true) this.onContact(device.zone, device.id).catch(() => { /* best-effort */ });
         });
       }
-      if (isLight(device)) {
-        device.makeCapabilityInstance('onoff', (value: unknown) => {
-          if (typeof value === 'boolean') {
-            this.lightAuth.handleOnOffChange(device.id, value).catch(() => { /* best-effort */ });
-          }
-        });
-      }
+
     }
   }
 

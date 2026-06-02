@@ -151,6 +151,5 @@ export const SETTINGS_KEYS = {
 } as const;
 
 export const EVENT_LOG_MAX = 150;
-export const CMD_BUFFER_TTL_MS = 2_000;
 export const FALSE_ALARM_WINDOW_MS = 90_000;
 export const MAX_PUSH_PER_EVENT = 3;

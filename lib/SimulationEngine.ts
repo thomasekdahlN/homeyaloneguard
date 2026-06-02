@@ -2,7 +2,6 @@
 
 import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
-import type LightAuthGuard from './LightAuthGuard';
 import { GuardSettings } from './types';
 import { isLight } from './Capabilities';
 
@@ -19,7 +18,6 @@ export default class SimulationEngine {
     private readonly homey: Homey,
     private readonly homeyApi: any,
     private readonly log: EventLog,
-    private readonly lightAuth: LightAuthGuard,
     private readonly getSettings: () => GuardSettings,
   ) { }
 
@@ -102,7 +100,6 @@ export default class SimulationEngine {
       const zoneLights = all.filter((d) => d.zone === zoneId && isLight(d));
       for (const light of zoneLights) {
         try {
-          this.lightAuth.registerOwnCommand(light.id, true);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: true });
         } catch { /* best-effort */ }
       }
@@ -118,7 +115,6 @@ export default class SimulationEngine {
       const zoneLights = all.filter((d) => d.zone === zoneId && isLight(d));
       for (const light of zoneLights) {
         try {
-          this.lightAuth.registerOwnCommand(light.id, false);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
         } catch { /* best-effort */ }
       }

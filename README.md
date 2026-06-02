@@ -14,7 +14,6 @@ McCallister Guard er ikke enda et passivt alarmsystem. I stedet for å bare tute
 - **Sone-basert avskrekking** — bevegelse i én sone trigger avskrekking i en annen «reaksjonssone» (matrise konfigurerbar per sone), så tyven aldri møter responsen sin der hen er
 - **Konfigurerbar lys-avskrekking** — appen blinker lys i reaksjonssonen med en sakte syklus (PÅ/AV-tid konfigurerbar pr. sone, default 15 sek hver vei). Modus-endringer kan brukes i `mode_changed`-triggeren til å bygge egne Homey-flows
 - **Kevin-modus** — automatisk tilstedeværelses-simulering i Borte-modus (lys av/på i sannsynlig sekvens)
-- **Lys-autorisering** — uautorisert lysbruk under armert tilstand oppdages, logges og slås umiddelbart av; kun app-initierte kommandoer tillates (tyv kan ikke «gjemme seg» ved å skru på lys). Kun oppdagelsen logges — om korreksjonen lykkes eller feiler loggføres ikke for å holde loggene rene.
 - **Eskalering** — om avskrekking ikke får tyven til å snu, eskalerer systemet automatisk til Alarm-modus etter konfigurert tid (full sirene, strobe på alle lys)
 - **Falsk-alarm-filter** — flere uavhengige sensor-treff kreves før eskalering starter
 - **Flow-kort** — actions, conditions og triggers (inkl. `mode_changed` og `timestamp`-token) for full integrasjon med Homey-flows (push, SMS, kamera, naboalarmer)
@@ -60,7 +59,6 @@ flowchart TB
     FAF[FalseAlarmFilter - 90s konfidens]
     DE[DeterrenceEngine - reaksjonssone-matrise]
     MC[MediaCaster - blink_on/off pr sone]
-    LAG[LightAuthGuard - manuelt lys = noen hjemme]
     SIM[SimulationEngine - Kevin-modus]
     EM[EscalationManager - krise-timer]
     CAM[CameraManager - snapshot-loop]
@@ -240,7 +238,6 @@ sequenceDiagram
 | `MediaCaster` | Lys-blink i reaksjonssonen med konfigurerbar PÅ/AV-syklus (`blink_on`/`blink_off` pr. sone, default 15 s / 15 s) |
 | `EscalationManager` | Timer fra alarm til full krise + strobe-rutine på alle lys |
 | `FalseAlarmFilter` | Krever (kontakt + bevegelse) eller bevegelse i to soner innen 90 s før eskalering |
-| `LightAuthGuard` | Blokkerer uautorisert lysbruk under armert tilstand (slår av umiddelbart); deaktivert under aktiv avskrekking så eksterne flows kan styre lys trygt |
 | `SimulationEngine` | Kevin-modus: lys-mønstre i Borte-modus på markerte soner |
 | `CameraManager` | Snapshot-loop fra sone-kameraer ved alarm (hopper over soner uten kameraer) |
 | `EventLog` | Strukturert intern hendelseslogg (vises i Event Log-fanen i settings-UI) |
@@ -462,8 +459,7 @@ DA   Sonos: Stop avspilling
 **Tips:**
 - Bruk `alarm_triggered_from`-condition under aktiv `alarm`-fase for å spille ulike lyder
   avhengig av om alarmen kom fra Borte- eller Skallsikring-modus.
-- Appen deaktiverer lys-vakta (`LightAuthGuard`) mens avskrekking pågår — egne flows kan
-  trygt styre lys i reaksjonssonen parallelt med innebygd blink.
+- Egne flows kan trygt styre lys i reaksjonssonen parallelt med innebygd blink.
 - Volum-kontroll på tredjepartshøyttalere må gjøres i samme flow — appen har ikke tilgang
   til dette fra koden.
 
@@ -553,9 +549,9 @@ homey app install
    > deaktiverer ikke nattmodus automatisk — endre modus manuelt på dashbordet om nødvendig.
    > Sendes `set_mode = Hjemme` mens systemet er i **Alarm**, stoppes alarmen og systemet deaktiveres helt.
 6. **Lys-avskrekking pr. sone:** appen blinker lys i reaksjonssonen med en sakte PÅ/AV-syklus (default
-   15 sek hver vei, justerbart pr. sone under «Lys på (sek)» / «Lys av (sek)»). Lys-vakta (`LightAuthGuard`)
-   er deaktivert mens avskrekking pågår, så en ekstern flow kan trygt styre lys i sonen samtidig. Bruk
-   `mode_changed`-triggeren (mode_new = deterrence) for egne flows som reagerer på avskrekking.
+   15 sek hver vei, justerbart pr. sone under «Lys på (sek)» / «Lys av (sek)»). Egne flows kan trygt
+   styre lys i sonen parallelt med innebygd blink. Bruk `mode_changed`-triggeren (mode_new = deterrence)
+   for flows som reagerer på avskrekking.
 7. Sett **Borte-modus** når du forlater huset, eller bruk `set_mode`-actionen fra en flow (geofence, bryter,
    stemme). Bruk `mode_changed`-trigger til logging eller automatikk rundt modus-bytter.
 
@@ -639,7 +635,7 @@ Pivoten ble løsning A: **systemet bytter modus til `deterrence` når avskrekkin
 
 Innebygd lys-avskrekking (`MediaCaster.startBlink` — sakte PÅ/AV-syklus på lys-enheter i reaksjonssonen, default 15 sek hver vei, konfigurerbart pr. sone) **kjører alltid** når avskrekking starter. Dette gir et fornuftig system out-of-the-box og sikrer at brukeren får visuell avskrekking selv om Chromecast-en er offline eller flowen er deaktivert.
 
-Mens avskrekking pågår, deaktiveres lys-vakta (`LightAuthGuard`) for reaksjonssonen, slik at en ekstern flow trygt kan styre lys i sonen parallelt med blinkingen uten å bli slått av igjen.
+Egne flows kan trygt styre lys i sonen parallelt med blinkingen.
 
 ### Konsekvenser for fremtidige Homey-apper
 
@@ -661,9 +657,10 @@ Underveis har vi ryddet bort funksjonalitet som **virket riktig på papiret, men
 | **Embedde `castv2-client` / Tizen-protokoll direkte i appen** | Krever IP-discovery (vi har bare Homey-device-ID), parallell vedlikehold når Google/Samsung endrer protokollen, separat implementasjon pr. plattform — bryter Athoms anbefalte arkitektur. | Vurdert og forkastet. Ikke verdt det. |
 | **Cast-skjermer-info-banner pr. sone** (advarsel om at oppdaget skjerm ikke støtter direkte cast) | Ble misvisende — vi sa «bruk en Homey-flow» uten å gi brukeren noe sted å klikke. | Fjernet. `mode_changed`-triggeren er det offisielle integrasjonspunktet for brukerens egne flows. |
 | **Programmatisk velge / kjøre en spesifikk Homey-flow fra app-kode** (per-sone dropdown med flow-ID som ble lagret i `deterrent_flows`) | Det finnes **ingen `runFlow(flowId)`-API for tredjepartsapper** på Homey. `homey.flow.getFlows()` er `readonly`, og det finnes ingen imperativ måte å fyre en valgt flow fra koden. | Helt fjernet. Systemet endrer modus — brukerens flow lytter på `mode_changed`. `getFlows`-API-endepunktet (`/flows`) er fjernet. |
-| **«Jeg har laget en ekstern flow»-avkrysning pr. sone** (boolean i `deterrent_flows`) | Avkrysningen styrte kun om `LightAuthGuard` skulle «la flowen overta» lyset. I praksis var dette unødvendig kompleksitet: lys-vakta er uansett deaktivert mens avskrekking pågår, så en parallell flow kan trygt styre lys uansett. | Fjernet. Innstillingene har nå kun «Lys på (sek)» / «Lys av (sek)» pr. sone for å justere blink-tempoet (default 15/15). `deterrent_flows`-feltet er borte; gamle verdier ignoreres. |
+| **«Jeg har laget en ekstern flow»-avkrysning pr. sone** (boolean i `deterrent_flows`) | Avkrysningen hadde blitt unødvendig. | Fjernet. Innstillingene har nå kun «Lys på (sek)» / «Lys av (sek)» pr. sone for å justere blink-tempoet (default 15/15). `deterrent_flows`-feltet er borte; gamle verdier ignoreres. |
 | **600 ms strobing** | Tidligere blinket lysene 600 ms av/på som en politilys-effekt. Det fungerte teknisk, men ga ofte hørbar klikke-lyd i relébaserte enheter, akselererte slitasje på Hue/IKEA-pærer og gjorde at noen sone-til-zigbee-broer droppet kommandoer pga. trafikk. | Erstattet med en sakte PÅ/AV-syklus styrt av `blink_on`/`blink_off` pr. sone (default 15 sek hver vei, justerbart i Soneoversikten). |
-| **«Blinke med alle enheter som har `onoff`»** | Tidligere filter krevde bare `onoff`-capability + ikke-sensor. Resultatet var at varmekabler, panelovner, frysere, smartplugger, vifter og TV-er ble forsøkt strobet under avskrekking — uønsket og potensielt skadelig. | Strikt filter: `isLight()` krever nå `device.class === 'light'` i tillegg til `onoff`. Brukt konsekvent i `MediaCaster.startLightStrobe`/`stopZone`, `SimulationEngine` (Kevin-syklus), `LightAuthGuard.handleOnOffChange`, og listener-registrering i `app.ts`. Hvis en smartplugg skal kunne brukes som lys (f.eks. juletre), endre `class` til `light` i Homey-enhetens innstillinger. |
+| **«Blinke med alle enheter som har `onoff`»** | Tidligere filter krevde bare `onoff`-capability + ikke-sensor. Resultatet var at varmekabler, panelovner, frysere, smartplugger, vifter og TV-er ble forsøkt strobet under avskrekking — uønsket og potensielt skadelig. | Strikt filter: `isLight()` krever nå `device.class === 'light'` i tillegg til `onoff`. Brukt konsekvent i `MediaCaster.startLightStrobe`/`stopZone` og `SimulationEngine` (Kevin-syklus). Hvis en smartplugg skal kunne brukes som lys (f.eks. juletre), endre `class` til `light` i Homey-enhetens innstillinger. |
+| **Lys-autorisering (`LightAuthGuard`)** | Funksjonen oppdaget lys som ble slått på av eksterne kilder mens systemet var armert, og slo dem umiddelbart av igjen. I praksis kom dette i konflikt med for mange legitime automatiske rutiner: utelys som skrus på ved solnedgang, vekkerklokke-flows som skrur på lys om morgenen (selv om man ikke er hjemme), og andre tidsbaserte lys-flows. Det fantes ingen enkel måte å hviteliste «tillatte» lys uten å pålegge brukeren manuell konfigurasjon av alle lys-automatikker. | Fjernet i sin helhet. Appen kontrollerer kun lys i reaksjonssonen under aktiv avskrekking og alarmstrobe — alt annet overlates til brukerens egne flows. |
 | **Snapshot-loop i alle soner med bevegelse** | `CameraManager.startForZone()` startet et `setInterval` i hver sone det var bevegelse i, og filtrerte først ut kamera-enheter på hvert tick. Resultatet var bortkastet planlegging og loop-logg-støy i soner uten kameraer. | `startForZone()` slår nå opp `isCamera(d)` på sonens enheter først og hopper helt over loopen hvis ingen kameraer finnes. Loggen sier «Snapshot-loop hoppes over: ingen kameraer i sone X». |
 
 ### Hvor vises bildene fra snapshot-loopen?

@@ -2,7 +2,6 @@
 
 import type Homey from 'homey/lib/Homey';
 import type EventLog from './EventLog';
-import type LightAuthGuard from './LightAuthGuard';
 
 const STROBE_INTERVAL_MS = 400;
 
@@ -18,7 +17,6 @@ export default class EscalationManager {
     private readonly homey: Homey,
     private readonly homeyApi: any,
     private readonly log: EventLog,
-    private readonly lightAuth: LightAuthGuard,
   ) { }
 
   /**
@@ -57,7 +55,6 @@ export default class EscalationManager {
       toggle = !toggle;
       for (const light of lights) {
         try {
-          this.lightAuth.registerOwnCommand(light.id, true);
           await light.setCapabilityValue({ capabilityId: 'onoff', value: true });
           if (light.capabilities.includes('light_hue')) {
             await light.setCapabilityValue({ capabilityId: 'light_hue', value: toggle ? 0 : 0.66 });
