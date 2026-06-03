@@ -2,7 +2,7 @@ import {
   describe, expect, it,
 } from 'vitest';
 import EventLog from '../lib/EventLog';
-import { EVENT_LOG_MAX, SETTINGS_KEYS } from '../lib/types';
+import { SETTINGS_KEYS } from '../lib/types';
 import { createMockHomey } from './helpers/mockHomey';
 
 describe('EventLog', () => {
@@ -34,18 +34,6 @@ describe('EventLog', () => {
     expect(recent.map((e) => e.message)).toEqual(['tredje', 'andre', 'første']);
   });
 
-  it('begrenser ring-buffer til EVENT_LOG_MAX (150) oppføringer', () => {
-    const homey = createMockHomey();
-    const log = new EventLog(homey as never);
-    for (let i = 0; i < EVENT_LOG_MAX + 25; i += 1) {
-      log.add('info', `event-${i}`);
-    }
-
-    expect(log.recent()).toHaveLength(EVENT_LOG_MAX);
-    expect(log.recent()[0]?.message).toBe(`event-${EVENT_LOG_MAX + 24}`);
-    expect(log.recent()[EVENT_LOG_MAX - 1]?.message).toBe('event-25');
-  });
-
   it('laster eksisterende hendelser fra settings', () => {
     const stored = [
       {
@@ -59,7 +47,7 @@ describe('EventLog', () => {
     expect(log.recent()[0]?.message).toBe('gammel');
   });
 
-  it('klipper overskytende ved load (slice -150)', () => {
+  it('laster alle entries innenfor 14-dagers vindu fra settings', () => {
     const now = Date.now();
     const stored = Array.from({ length: 200 }, (_, i) => ({
       ts: now - (200 - i), level: 'info' as const, message: `e${i}`,
@@ -67,7 +55,7 @@ describe('EventLog', () => {
     const homey = createMockHomey({ [SETTINGS_KEYS.EVENT_LOG]: stored });
     const log = new EventLog(homey as never);
 
-    expect(log.recent()).toHaveLength(EVENT_LOG_MAX);
+    expect(log.recent()).toHaveLength(200);
     expect(log.recent()[0]?.message).toBe('e199');
   });
 

@@ -2,7 +2,7 @@
 
 import type Homey from 'homey/lib/Homey';
 import {
-  EVENT_LOG_MAX, EVENT_LOG_MAX_AGE_MS, EventEntry, EventLevel, SETTINGS_KEYS,
+  EVENT_LOG_MAX_AGE_MS, EventEntry, EventLevel, SETTINGS_KEYS,
 } from './types';
 
 export type ZoneNameResolver = (zoneId: string) => string | undefined;
@@ -15,7 +15,7 @@ export default class EventLog {
   constructor(private readonly homey: Homey) {
     const stored = this.homey.settings.get(SETTINGS_KEYS.EVENT_LOG);
     const raw: EventEntry[] = Array.isArray(stored) ? stored : [];
-    this.buffer = this.pruneOld(raw).slice(-EVENT_LOG_MAX);
+    this.buffer = this.pruneOld(raw);
   }
 
   setZoneNameResolver(resolver: ZoneNameResolver): void {
@@ -29,17 +29,15 @@ export default class EventLog {
       ts: Date.now(), level, message: humanMessage, zoneId, zoneName, deviceId,
     };
     this.buffer.push(entry);
-    // Prune entries older than 14 days, then cap at EVENT_LOG_MAX.
+    // Prune entries older than 14 days (pure time-based rolling window).
     this.buffer = this.pruneOld(this.buffer);
-    if (this.buffer.length > EVENT_LOG_MAX) {
-      this.buffer.splice(0, this.buffer.length - EVENT_LOG_MAX);
-    }
     this.homey.settings.set(SETTINGS_KEYS.EVENT_LOG, this.buffer);
     return entry;
   }
 
-  recent(limit = EVENT_LOG_MAX): EventEntry[] {
-    return this.buffer.slice(-limit).reverse().map((e) => this.humanizeEntry(e));
+  recent(limit?: number): EventEntry[] {
+    const entries = limit ? this.buffer.slice(-limit) : this.buffer.slice();
+    return entries.reverse().map((e) => this.humanizeEntry(e));
   }
 
   clear(): void {

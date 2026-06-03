@@ -459,6 +459,20 @@
       margin: 0;
     }
 
+    .btn-secondary {
+      padding: 6px 14px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #f5f5f5;
+      color: #333;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn-secondary:hover {
+      background: #e8e8e8;
+    }
+
     .snap-delete-btn {
       background: #D32F2F;
       color: #fff;
@@ -904,7 +918,11 @@
   <section class="tab-panel" id="tab-log">
     <div class="snap-header" style="margin: 0 0 8px;">
       <h3 style="margin:0;">Hendelseslogg</h3>
-      <button class="snap-delete-btn" id="btn-clear-log">Tøm logg</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-secondary" id="btn-copy-log">Kopier logg</button>
+        <button class="btn-secondary" id="btn-download-log">Last ned</button>
+        <button class="snap-delete-btn" id="btn-clear-log">Tøm logg</button>
+      </div>
     </div>
     <div id="log" style="max-height: 460px; overflow-y: auto; border:1px solid #eee; border-radius:6px;"></div>
   </section>
@@ -1621,6 +1639,40 @@
         if (!confirm('Tøm hele hendelsesloggen?')) return;
         await Homey.api('DELETE', '/events');
         await refreshLive();
+      });
+
+      $('btn-copy-log').addEventListener('click', async () => {
+        const events = /** @type {Array<{ts:number,level:string,message:string}>} */ (await Homey.api('GET', '/events'));
+        if (!events || events.length === 0) { alert('Ingen hendelser å kopiere.'); return; }
+        const lines = events.map((e) => {
+          const d = new Date(e.ts);
+          const date = d.toLocaleDateString('nb-NO');
+          const time = d.toLocaleTimeString('nb-NO');
+          return `${date} ${time}\t${e.level}\t${e.message}`;
+        });
+        await navigator.clipboard.writeText(lines.join('\n'));
+        alert('Logg kopiert til utklippstavlen.');
+      });
+
+      $('btn-download-log').addEventListener('click', async () => {
+        const events = /** @type {Array<{ts:number,level:string,message:string}>} */ (await Homey.api('GET', '/events'));
+        if (!events || events.length === 0) { alert('Ingen hendelser å laste ned.'); return; }
+        const rows = ['Dato;Tid;Nivå;Melding'];
+        events.forEach((e) => {
+          const d = new Date(e.ts);
+          const date = d.toLocaleDateString('nb-NO');
+          const time = d.toLocaleTimeString('nb-NO');
+          const msg = e.message.replace(/"/g, '""');
+          rows.push(`${date};${time};${e.level};"${msg}"`);
+        });
+        const csv = rows.join('\r\n');
+        const today = new Date().toISOString().slice(0, 10);
+        const filename = `${today}-mcallister-hendelseslogg.csv`;
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        URL.revokeObjectURL(url);
       });
 
       (async () => {

@@ -150,7 +150,6 @@ export const SETTINGS_KEYS = {
   SETTINGS: 'guard_settings',
 } as const;
 
-export const EVENT_LOG_MAX = 150;
-export const EVENT_LOG_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+export const EVENT_LOG_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days rolling window
 export const FALSE_ALARM_WINDOW_MS = 90_000;
 export const MAX_PUSH_PER_EVENT = 3;
