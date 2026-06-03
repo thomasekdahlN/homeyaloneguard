@@ -646,6 +646,7 @@ class McCallisterGuardApp extends Homey.App {
     try {
       const devices = await this.homeyApi.devices.getDevices();
       this.openSensorsAtPerimeterStart.clear();
+      const openNames: string[] = [];
       for (const device of Object.values(devices) as any[]) {
         if (!Array.isArray(device.capabilities)) continue;
         if (!device.capabilities.includes('alarm_contact')) continue;
@@ -654,8 +655,13 @@ class McCallisterGuardApp extends Homey.App {
         if (val === true) {
           this.openSensorsAtPerimeterStart.add(device.id);
           const name = device.name || device.id;
+          openNames.push(name);
           this.eventLog.add('info', `Sensor åpen ved aktivering — ignoreres i skallsikring: ${name}.`, device.zone, device.id);
         }
+      }
+      if (openNames.length > 0) {
+        const msg = `Skallsikring aktivert: ${openNames.length} sensor(er) åpen — ignoreres: ${openNames.join(', ')}`;
+        await this.homey.notifications.createNotification({ excerpt: `ℹ️ ${msg}` });
       }
     } catch (err) {
       this.eventLog.add('warning', `Snapshot av åpne sensorer feilet: ${(err as Error).message}`);

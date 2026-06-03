@@ -74,8 +74,11 @@ export default class MediaCaster {
 
   private async startLightStrobe(zoneId: string, devices: any[], hues: number[]): Promise<void> {
     const settings = this.getSettings();
-    const onSec = Math.max(1, settings.blink_on?.[zoneId] ?? DEFAULT_BLINK_SECONDS);
-    const offSec = Math.max(1, settings.blink_off?.[zoneId] ?? DEFAULT_BLINK_SECONDS);
+    // blink_on/blink_off are global numbers; guard against legacy ZoneSeconds objects stored in settings.
+    const rawOn = settings.blink_on;
+    const rawOff = settings.blink_off;
+    const onSec = Math.max(1, typeof rawOn === 'number' ? rawOn : DEFAULT_BLINK_SECONDS);
+    const offSec = Math.max(1, typeof rawOff === 'number' ? rawOff : DEFAULT_BLINK_SECONDS);
     await this.startLightStrobeWithTiming(zoneId, devices, hues, onSec, offSec);
   }
 

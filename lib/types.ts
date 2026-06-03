@@ -34,8 +34,10 @@ export interface GuardSettings {
   kevin_zones: KevinZones;
   perimeter_sensors: string[];
   entry_delay_sensors: string[];
-  blink_on: ZoneSeconds;
-  blink_off: ZoneSeconds;
+  /** Global deterrence blink-on time in seconds (default 15). */
+  blink_on: number;
+  /** Global deterrence blink-off time in seconds (default 15). */
+  blink_off: number;
   alarm_blink_on: number;
   alarm_blink_off: number;
   /** Global: number of snapshots per camera when alarm is active and motion is detected. Default: 10. */
@@ -98,8 +100,8 @@ export const DEFAULT_SETTINGS: GuardSettings = {
   kevin_zones: {},
   perimeter_sensors: [],
   entry_delay_sensors: [],
-  blink_on: {},
-  blink_off: {},
+  blink_on: DEFAULT_BLINK_SECONDS,
+  blink_off: DEFAULT_BLINK_SECONDS,
   alarm_blink_on: DEFAULT_ALARM_BLINK_ON,
   alarm_blink_off: DEFAULT_ALARM_BLINK_OFF,
   camera_alarm_burst: CAMERA_ALARM_BURST_DEFAULT,

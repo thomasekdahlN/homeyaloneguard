@@ -929,6 +929,12 @@
 
   <section class="tab-panel" id="tab-images">
     <div class="info-banner">Lagrede kamerabilder. Antall bilder som beholdes stilles inn under «Innstillinger».</div>
+    <div class="info-banner">⚠️ <strong>Kun kameraer som støtter snapshot-bilde URL fungerer.</strong>
+      Konfigurer manuell snapshot-URL under <strong>Soneoversikt → kamera</strong> om bildetaking ikke fungerer.
+      Les <a
+        href="https://github.com/thomasekdahlN/mcallisteralarm#kamera-snapshot--alt-vi-har-prøvd-og-hvorfor-det-ikke-fungerer"
+        target="_blank" rel="noopener">README</a> for mer informasjon om kamerastøtte.
+    </div>
 
     <div class="snap-header">
       <h3>Alarmbilder</h3>
@@ -1284,12 +1290,7 @@
             sensorBlock = `<label>Skallsikring</label><div class="sensor-empty">Ingen dør/vindu- eller bevegelses-sensorer i denne sonen.</div>`;
           }
 
-          const onSec = Number.isFinite(blinkOn[z.id]) ? blinkOn[z.id] : 15;
-          const offSec = Number.isFinite(blinkOff[z.id]) ? blinkOff[z.id] : 15;
-          const blinkBlock = `<label>Lys på (sek)</label>`
-            + `<input type="number" min="1" step="1" data-blink-on="${esc(z.id)}" value="${onSec}" style="width:120px;">`
-            + `<label>Lys av (sek)</label>`
-            + `<input type="number" min="1" step="1" data-blink-off="${esc(z.id)}" value="${offSec}" style="width:120px;">`;
+          // blink_on/blink_off are now global — configured under Innstillinger.
 
           const cameraAlarmCams = settings.camera_alarm_cams || {};
           const cameraMotionCams = settings.camera_motion_cams || {};
@@ -1322,7 +1323,6 @@
             + `<select data-matrix="${esc(z.id)}"><option value="">— ingen —</option>${opts}</select>`
             + `<label>Kevin-modus</label>`
             + `<label style="justify-self:start;"><input type="checkbox" data-kevin="${esc(z.id)}" ${settings.kevin_zones[z.id] ? 'checked' : ''}> Lys-simulering</label>`
-            + blinkBlock
             + sensorBlock
             + cameraBlock
             + testBtn
@@ -1376,8 +1376,10 @@
           ['exit_delay', 'Exit delay (s)', 'number'],
           ['entry_delay', 'Entry delay (s)', 'number'],
           ['escalation_minutes', 'Escalation time (min)', 'number'],
-          ['alarm_blink_on', 'Alarm blink on (s)', 'number'],
-          ['alarm_blink_off', 'Alarm blink off (s)', 'number'],
+          ['blink_on', 'Avskrekking lys på (sek)', 'number'],
+          ['blink_off', 'Avskrekking lys av (sek)', 'number'],
+          ['alarm_blink_on', 'Alarm blink på (s)', 'number'],
+          ['alarm_blink_off', 'Alarm blink av (s)', 'number'],
           ['snapshot_max_count', 'Maks bilder per kategori (alarm/bevegelse)', 'number'],
           ['camera_alarm_burst', 'Bilder per kamera ved alarm', 'number'],
           ['camera_motion_burst', 'Bilder per kamera ved bevegelse', 'number'],
@@ -1497,7 +1499,7 @@
       $('btn-save').addEventListener('click', async () => {
         const payload = {};
         const timeKeys = new Set(['bedtime', 'armed_perimeter_on', 'armed_perimeter_off']);
-        ['bedtime', 'sunset_offset', 'random_min', 'random_max', 'deterrence_delay', 'exit_delay', 'entry_delay', 'escalation_minutes', 'alarm_blink_on', 'alarm_blink_off', 'snapshot_max_count', 'camera_alarm_burst', 'camera_motion_burst', 'armed_perimeter_on', 'armed_perimeter_off']
+        ['bedtime', 'sunset_offset', 'random_min', 'random_max', 'deterrence_delay', 'exit_delay', 'entry_delay', 'escalation_minutes', 'blink_on', 'blink_off', 'alarm_blink_on', 'alarm_blink_off', 'snapshot_max_count', 'camera_alarm_burst', 'camera_motion_burst', 'armed_perimeter_on', 'armed_perimeter_off']
           .forEach((k) => { const v = $('set_' + k).value; payload[k] = timeKeys.has(k) ? v : Number(v); });
         payload.armed_perimeter_auto = $('set_armed_perimeter_auto').checked;
         await saveSettings(payload, $('btn-save'), 'saved-toast');
@@ -1505,21 +1507,13 @@
       $('btn-save-zones').addEventListener('click', async () => {
         const payload = {
           kevin_zones: {}, zone_matrix: {}, perimeter_sensors: [], entry_delay_sensors: [],
-          blink_on: {}, blink_off: {}, camera_alarm_cams: {}, camera_motion_cams: {},
+          camera_alarm_cams: {}, camera_motion_cams: {},
           camera_snapshot_urls: {},
         };
         document.querySelectorAll('[data-kevin]').forEach((c) => { payload.kevin_zones[c.dataset.kevin] = c.checked; });
         document.querySelectorAll('[data-matrix]').forEach((s) => { if (s.value) payload.zone_matrix[s.dataset.matrix] = s.value; });
         document.querySelectorAll('[data-perimeter]:checked').forEach((c) => { payload.perimeter_sensors.push(c.dataset.perimeter); });
         document.querySelectorAll('[data-entry-delay]:checked').forEach((c) => { payload.entry_delay_sensors.push(c.dataset.entryDelay); });
-        document.querySelectorAll('[data-blink-on]').forEach((i) => {
-          const v = Math.max(1, Number(i.value) || 15);
-          payload.blink_on[i.dataset.blinkOn] = v;
-        });
-        document.querySelectorAll('[data-blink-off]').forEach((i) => {
-          const v = Math.max(1, Number(i.value) || 15);
-          payload.blink_off[i.dataset.blinkOff] = v;
-        });
         document.querySelectorAll('[data-camera-alarm-cam]').forEach((c) => {
           payload.camera_alarm_cams[c.dataset.cameraAlarmCam] = c.checked;
         });
