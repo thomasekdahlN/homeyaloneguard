@@ -42,6 +42,10 @@
       "method": "GET",
       "path": "/events"
     },
+    "clearEventLog": {
+      "method": "DELETE",
+      "path": "/events"
+    },
     "getZones": {
       "method": "GET",
       "path": "/zones"

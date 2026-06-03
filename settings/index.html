@@ -902,7 +902,11 @@
   </section>
 
   <section class="tab-panel" id="tab-log">
-    <div id="log" style="max-height: 480px; overflow-y: auto; border:1px solid #eee; border-radius:6px;"></div>
+    <div class="snap-header" style="margin: 0 0 8px;">
+      <h3 style="margin:0;">Hendelseslogg</h3>
+      <button class="snap-delete-btn" id="btn-clear-log">Tøm logg</button>
+    </div>
+    <div id="log" style="max-height: 460px; overflow-y: auto; border:1px solid #eee; border-radius:6px;"></div>
   </section>
 
   <section class="tab-panel" id="tab-images">
@@ -1612,6 +1616,12 @@
       }
       $('btn-delete-alarm').addEventListener('click', () => deleteSnapshotsOfType('alarm'));
       $('btn-delete-motion').addEventListener('click', () => deleteSnapshotsOfType('motion'));
+
+      $('btn-clear-log').addEventListener('click', async () => {
+        if (!confirm('Tøm hele hendelsesloggen?')) return;
+        await Homey.api('DELETE', '/events');
+        await refreshLive();
+      });
 
       (async () => {
         await loadStaticOnce();

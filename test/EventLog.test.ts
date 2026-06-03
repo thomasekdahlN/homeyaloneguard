@@ -49,7 +49,7 @@ describe('EventLog', () => {
   it('laster eksisterende hendelser fra settings', () => {
     const stored = [
       {
-        ts: 1, level: 'info', message: 'gammel', zoneId: 'z1',
+        ts: Date.now(), level: 'info', message: 'gammel', zoneId: 'z1',
       },
     ];
     const homey = createMockHomey({ [SETTINGS_KEYS.EVENT_LOG]: stored });
@@ -60,8 +60,9 @@ describe('EventLog', () => {
   });
 
   it('klipper overskytende ved load (slice -150)', () => {
+    const now = Date.now();
     const stored = Array.from({ length: 200 }, (_, i) => ({
-      ts: i, level: 'info' as const, message: `e${i}`,
+      ts: now - (200 - i), level: 'info' as const, message: `e${i}`,
     }));
     const homey = createMockHomey({ [SETTINGS_KEYS.EVENT_LOG]: stored });
     const log = new EventLog(homey as never);

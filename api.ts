@@ -56,7 +56,7 @@ interface AppRef {
     getEntryDelayEndsAt(): number | null;
   };
   deterrence: { getActiveZone(): string | null; getActiveMotionZone(): string | null };
-  eventLog: { recent(limit?: number): unknown[] };
+  eventLog: { recent(limit?: number): unknown[]; clear(): void };
   escalation: { isInCrisis(): boolean; isPending(): boolean };
   simulation: { isRunning(): boolean };
 }
@@ -92,6 +92,11 @@ module.exports = {
 
   async getEventLog({ homey }: Ctx) {
     return homey.app.eventLog.recent();
+  },
+
+  async clearEventLog({ homey }: Ctx) {
+    homey.app.eventLog.clear();
+    return { success: true };
   },
 
   async getZones({ homey }: Ctx) {
