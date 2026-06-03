@@ -17,7 +17,7 @@ McCallister Guard er ikke enda et passivt alarmsystem. I stedet for å bare tute
 - **Eskalering** — om avskrekking ikke får tyven til å snu, eskalerer systemet automatisk til Alarm-modus etter konfigurert tid (full sirene, strobe på alle lys)
 - **Falsk-alarm-filter** — flere uavhengige sensor-treff kreves før eskalering starter
 - **Flow-kort** — actions, conditions og triggers (inkl. `mode_changed` og `timestamp`-token) for full integrasjon med Homey-flows (push, SMS, kamera, naboalarmer)
-- **Homey Timeline-logging** — modus-bytter (Av/Borte/Skallsikring), avskrekking startet, alarm utløst/stoppet og krise-eskalering postes til Homey-app-en sin Timeline via `homey.notifications.createNotification`, parallelt med appens egen interne event-logg
+- **Automatiske push-varsler** — appen sender push-notifikasjon til Homey-appen ved kritiske hendelser: avskrekking startet, skallsikring alarm, full alarm utløst, alarm stoppet, åpne sensorer ved armering og sensorer offline. Modus-bytter postes i tillegg til Homey-tidslinje. Alt skjer via `homey.notifications.createNotification`, parallelt med appens interne event-logg
 - **Norsk-først UI** — settings-panelet på norsk med engelsk fallback
 
 ## Skjermbilder
@@ -249,8 +249,8 @@ sequenceDiagram
 
 | Kort | Tokens | Når |
 |---|---|---|
-| `alarm_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Sensor aktiverer alarm i **Borte** (`armed`) — etter entry delay |
-| `alarm_perimeter_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp` | Sensor aktiverer alarm i **Skallsikring** (`armed_perimeter`) — etter entry delay |
+| `alarm_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`, `snapshot` (image, om tilgjengelig) | Sensor aktiverer alarm i **Borte** (`armed`) — etter entry delay |
+| `alarm_perimeter_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`, `snapshot` (image, om tilgjengelig) | Sensor aktiverer alarm i **Skallsikring** (`armed_perimeter`) — etter entry delay |
 | `alarm_stopped` | `zone`, `sensor`, `reason` | Borte-alarm stoppet (av bruker, deaktivering eller automatisk) |
 | `alarm_perimeter_stopped` | `zone`, `sensor`, `reason` | Skallsikring-alarm stoppet |
 | `mode_changed` | `mode_new`, `mode_previous` | Systemet bytter modus — inkl. overgang til `deterrence` og `alarm` |
@@ -296,15 +296,17 @@ sequenceDiagram
 
 ### Eksempel-flows — alarmreaksjon
 
+> **Merk:** Appen sender allerede automatisk push til Homey-tidslinje for alle alarm-hendelser.
+> Flowene nedenfor er for tilleggsreaksjoner (lyd, SMS, Pushover med bilde, naboalarmer, o.l.)
+
 ```
 NÅR  Skallsikring-brudd oppdaget (alarm_perimeter_triggered)
-SÅ   Push til DEG: «Noen ved [[sensor]] (sone: [[zone]])»
+SÅ   Pushover: Send melding med bilde [[snapshot]] og høy prioritet lyd
      Skru på alle lys i 1. etasje
      Spill bjeffende hund på gang-høyttaler
 
 NÅR  Alarm aktivert (alarm_triggered — Borte-modus)
-SÅ   Push til ALLE i husstanden
-     Ta kamera-snapshot
+SÅ   Pushover: Send melding med bilde [[snapshot]] til ALLE i husstanden
      Start sirene + blink i hele huset
      Ring nødkontakt via IFTTT/SMS
 
@@ -385,6 +387,23 @@ Eksempel:
 ```
 
 Øyeblikksbildet nullstilles automatisk når Skallsikring deaktiveres.
+
+#### Automatiske push-varsler — oversikt
+
+Appen sender push-notifikasjoner til Homey-appen for alle kritiske hendelser uten at brukeren trenger å sette opp flows:
+
+| Hendelse | Push-melding |
+|---|---|
+| Bevegelse/kontakt utløser avskrekking (Borte) | `🚨 Avskrekking: [sensor] i [sone]` |
+| Perimetersensor utløser direkte alarm (Skallsikring) | `🚨 Skallsikring alarm: [sensor] i [sone]` |
+| Avskrekking eskalerer til full alarm | `🚨 ALARM utløst i [sone] — [sensor]` |
+| Alarm stoppet | `Alarm stoppet (sone: [sone]) — [årsak]` |
+| Modus-bytte (arm/deaktiver) | Modus-etiketten, f.eks. `Borte` / `Skallsikring` / `ALARM` |
+| Deaktivert av bruker | `Deaktivert av [navn]` |
+| Åpne sensorer ved armering | Se tabellen nedenfor |
+| Sensorer offline ved helsesjekk | `⚠️ Aktivert, men N sensor(er) rapporterer ikke: [navn]` |
+
+Push-varsler er best-effort — de logges alltid i intern event-logg uavhengig av nettverksstatus.
 
 #### Åpne sensorer ved aktivering — push-varsel
 
@@ -676,7 +695,7 @@ Underveis har vi ryddet bort funksjonalitet som **virket riktig på papiret, men
 
 ### Hvor vises bildene fra snapshot-loopen?
 
-Bilder lagres til `/userdata/snapshots/alarm/` og `/userdata/snapshots/motion/` og vises i **Bilder**-fanen i settings-UI. Homey-platformens `notifications.createNotification`-API tar kun tekst — den støtter ikke å feste et bilde direkte. Ønsker du å sende bildene eksternt (Telegram, e-post, Dropbox), må du bygge en flow som lytter på en `snapshot_taken`-trigger med et image-token.
+Bilder lagres til `/userdata/snapshots/alarm/` og `/userdata/snapshots/motion/` og vises i **Bilder**-fanen i settings-UI. Homey-platformens `notifications.createNotification`-API tar kun tekst — den støtter ikke å feste et bilde direkte til push-varselet i Homey-appen. Ønsker du å sende bildene eksternt med bilde (Telegram, Pushover, e-post, Dropbox), bruker du `snapshot`-image-tokenet som nå er tilgjengelig i `alarm_triggered`- og `alarm_perimeter_triggered`-flow-kortene, samt i `snapshot_taken`-triggeren.
 
 ---
 
@@ -791,7 +810,7 @@ For kameraer som ikke støtter Homeys native snapshot-API kan en mulig workaroun
 - Vi kan ikke programmatisk trigge en spesifikk flow ved ID. Eneste broen til en flow er at vi fyrer en trigger og brukerens flow lytter selv (med `zone`-filter om ønskelig).
 - Volum-kontroll på tredjepartshøyttalere fra app-kode er **ikke** mulig av samme årsak som casting. Hvis flow-en din skal skru opp volum, må også dét gjøres som en handling i flow-en.
 - Vi kan ikke detektere om en Chromecast/Sonos er i bruk av noen andre når avskrekkingen starter — det er opp til brukerens flow å håndtere «interrupt»-logikk.
-- Vi kan ikke feste bilder til Homey-notifikasjoner (`notifications.createNotification` tar kun tekst). Snapshot-loopen sender derfor kun tekst-varsler i dag — bildene må eksponeres via en flow med image-token hvis brukeren skal kunne se dem.
+- Vi kan ikke feste bilder direkte til Homey-push-notifikasjoner (`notifications.createNotification` tar kun tekst). Appen sender tekst-push automatisk ved alle alarm-hendelser. For push med bilde bruk `snapshot`-tokenet i `alarm_triggered` / `alarm_perimeter_triggered` i kombinasjon med f.eks. Pushover-appen i en flow.
 
 ---
 
