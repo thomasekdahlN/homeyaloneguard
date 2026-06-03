@@ -1627,19 +1627,48 @@
         });
       });
 
+      /** Two-step confirm: first click arms the button, second click within 3 s confirms. */
+      function withConfirm(btn, label, confirmLabel, action) {
+        let armed = false;
+        let timer = null;
+        btn.addEventListener('click', async () => {
+          if (!armed) {
+            armed = true;
+            const orig = btn.textContent;
+            btn.textContent = confirmLabel;
+            btn.style.opacity = '0.75';
+            timer = setTimeout(() => {
+              armed = false;
+              btn.textContent = orig;
+              btn.style.opacity = '';
+            }, 3000);
+          } else {
+            clearTimeout(timer);
+            armed = false;
+            btn.textContent = label;
+            btn.style.opacity = '';
+            btn.disabled = true;
+            try { await action(); } finally { btn.disabled = false; }
+          }
+        });
+      }
+
       async function deleteSnapshotsOfType(type) {
-        if (!confirm('Slette alle ' + (type === 'alarm' ? 'alarm' : 'bevegelses') + 'bilder?')) return;
         await Homey.api('DELETE', '/snapshots', { type });
         await loadImages();
       }
-      $('btn-delete-alarm').addEventListener('click', () => deleteSnapshotsOfType('alarm'));
-      $('btn-delete-motion').addEventListener('click', () => deleteSnapshotsOfType('motion'));
+      const btnDelAlarm = $('btn-delete-alarm');
+      if (btnDelAlarm) withConfirm(btnDelAlarm, 'Slett alle alarmbilder', 'Klikk igjen for å bekrefte', () => deleteSnapshotsOfType('alarm'));
+      const btnDelMotion = $('btn-delete-motion');
+      if (btnDelMotion) withConfirm(btnDelMotion, 'Slett alle bevegelsesbilder', 'Klikk igjen for å bekrefte', () => deleteSnapshotsOfType('motion'));
 
-      $('btn-clear-log').addEventListener('click', async () => {
-        if (!confirm('Tøm hele hendelsesloggen?')) return;
-        await Homey.api('DELETE', '/events');
-        await refreshLive();
-      });
+      const btnClearLog = $('btn-clear-log');
+      if (btnClearLog) {
+        withConfirm(btnClearLog, 'Tøm logg', 'Klikk igjen for å bekrefte', async () => {
+          await Homey.api('DELETE', '/events');
+          await refreshLive();
+        });
+      }
 
       $('btn-copy-log').addEventListener('click', async () => {
         const events = /** @type {Array<{ts:number,level:string,message:string}>} */ (await Homey.api('GET', '/events'));
