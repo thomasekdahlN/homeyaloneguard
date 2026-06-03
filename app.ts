@@ -491,10 +491,10 @@ class McCallisterGuardApp extends Homey.App {
     const mode = this.stateMachine.getMode();
     // Only activate from disarmed; never interrupt armed/alarm/deterrence.
     if (inWindow && mode === 'disarmed') {
-      this.eventLog.add('info', `Automatisk skallsikring aktivert (vindu ${on}–${off}).`);
+      this.eventLog.add('info', 'Skallsikring aktivert.');
       this.setMode('armed_perimeter').catch(() => { /* best-effort */ });
     } else if (!inWindow && mode === 'armed_perimeter') {
-      this.eventLog.add('info', `Automatisk skallsikring deaktivert (vindu ${on}–${off}).`);
+      this.eventLog.add('info', 'Skallsikring deaktivert.');
       this.setMode('disarmed', { force: true }).catch(() => { /* best-effort */ });
     }
   }
@@ -544,7 +544,7 @@ class McCallisterGuardApp extends Homey.App {
         if (args.mode === 'disarmed') {
           // Always log disarm attempts — including when mode is already disarmed or
           // when armed_perimeter guard silently ignores the request.
-          const who = args.name?.trim() || 'ukjent';
+          const who = (args.name?.trim() || 'ukjent').replace(/^user:\s*/i, '');
           this.eventLog.add('info', `Deaktivert av ${who}.`);
           this.pushTimeline(`McCallister Guard: Deaktivert av ${who}`);
         }
