@@ -155,7 +155,7 @@ class McCallisterGuardApp extends Homey.App {
       this.clearDeterrenceTimer();
       this.stateMachine.cancelEntryDelay();
       this.falseAlarm.reset();
-      this.escalation.cancel();
+      await this.escalation.cancel();
       this.simulation.stop();
       await this.deterrence.abort();
       await this.media.stopAll();
@@ -218,7 +218,7 @@ class McCallisterGuardApp extends Homey.App {
     await this.escalation.triggerCrisis();
     this.testStopTimer = this.homey.setTimeout(async () => {
       this.testStopTimer = null;
-      this.escalation.cancel();
+      await this.escalation.cancel();
       await this.media.stopAll();
       this.alarmStopped('Test alarm ferdig (auto-stopp).');
       const returnMode = this.previousArmedMode ?? 'disarmed';
@@ -277,7 +277,7 @@ class McCallisterGuardApp extends Homey.App {
     this.clearTestStopTimer();
     this.clearDeterrenceTimer();
     this.stateMachine.cancelEntryDelay();
-    this.escalation.cancel();
+    await this.escalation.cancel();
     this.falseAlarm.reset();
     await this.deterrence.abort('Bruker stoppet alarmen.');
     await this.media.stopAll();

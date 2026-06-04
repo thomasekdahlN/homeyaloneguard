@@ -12,6 +12,7 @@ export default class EscalationManager {
   private strobeInterval: NodeJS.Timeout | null = null;
   private inCrisis = false;
   private listeners: EscalationListener[] = [];
+  private crisisLights: any[] = [];
 
   constructor(
     private readonly homey: Homey,
@@ -45,7 +46,7 @@ export default class EscalationManager {
       }
     }
 
-    const lights = all.filter((d) => Array.isArray(d.capabilities)
+    this.crisisLights = all.filter((d) => Array.isArray(d.capabilities)
       && d.capabilities.includes('onoff')
       && !d.capabilities.includes('alarm_motion')
       && !d.capabilities.includes('alarm_contact'));
@@ -53,7 +54,7 @@ export default class EscalationManager {
     let toggle = false;
     this.strobeInterval = this.homey.setInterval(async () => {
       toggle = !toggle;
-      for (const light of lights) {
+      for (const light of this.crisisLights) {
         try {
           await light.setCapabilityValue({ capabilityId: 'onoff', value: true });
           if (light.capabilities.includes('light_hue')) {
@@ -70,12 +71,23 @@ export default class EscalationManager {
     }, STROBE_INTERVAL_MS);
   }
 
-  cancel(): void {
+  async cancel(): Promise<void> {
     if (this.strobeInterval) {
       this.homey.clearInterval(this.strobeInterval);
       this.strobeInterval = null;
     }
     this.inCrisis = false;
+    // Turn off all lights that were strobing during the crisis.
+    const lights = this.crisisLights;
+    this.crisisLights = [];
+    for (const light of lights) {
+      try {
+        await light.setCapabilityValue({ capabilityId: 'onoff', value: false });
+      } catch { /* best-effort */ }
+    }
+    if (lights.length > 0) {
+      this.log.add('info', `Alarm avsluttet — ${lights.length} lys slukket.`);
+    }
   }
 
   onCrisis(listener: EscalationListener): void {
