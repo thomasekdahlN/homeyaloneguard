@@ -145,6 +145,13 @@ class McCallisterGuardApp extends Homey.App {
       return;
     }
 
+    // Cleanup when leaving perimeter_alarm (user dismisses or disarms the soft alert).
+    if (current === 'perimeter_alarm') {
+      this.alarmStopped('Skallsikring alarm avsluttet.');
+      this.alarmContext = null;
+      this.previousArmedMode = null;
+    }
+
     const settings = this.getSettings();
     if (mode === 'disarmed') {
       // Coming from alarm: fire alarm_stopped flow cards before tearing down.
@@ -163,13 +170,15 @@ class McCallisterGuardApp extends Homey.App {
       this.alarmContext = null;
     }
 
-    // Clear perimeter snapshot when leaving armed_perimeter.
-    if (current === 'armed_perimeter' && mode !== 'armed_perimeter') {
+    // Clear perimeter snapshot when leaving armed_perimeter (but not when entering perimeter_alarm —
+    // the snapshot must remain valid while the alert is active and if dismissed back to perimeter mode).
+    if (current === 'armed_perimeter' && mode !== 'armed_perimeter' && mode !== 'perimeter_alarm') {
       this.openSensorsAtPerimeterStart.clear();
     }
 
     // Snapshot open contact sensors before armed_perimeter activates so they can be ignored.
-    if (mode === 'armed_perimeter') {
+    // Skip re-snapshot when returning from perimeter_alarm — the snapshot is still valid.
+    if (mode === 'armed_perimeter' && current !== 'perimeter_alarm') {
       await this.snapshotOpenPerimeterSensors();
     }
 
@@ -187,7 +196,7 @@ class McCallisterGuardApp extends Homey.App {
     const seconds = Math.round(McCallisterGuardApp.TEST_DURATION_MS / 1000);
     this.eventLog.add('info', `Test: avskrekking i sone ${zoneId} — auto-stopp om ${seconds}s.`, zoneId);
     const currentMode = this.stateMachine.getMode();
-    if (currentMode !== 'deterrence' && currentMode !== 'alarm') {
+    if (currentMode !== 'deterrence' && currentMode !== 'alarm' && currentMode !== 'perimeter_alarm') {
       this.previousArmedMode = currentMode !== 'disarmed' ? currentMode as 'armed_perimeter' | 'armed' : null;
     }
     if (this.stateMachine.getMode() !== 'deterrence') {
@@ -210,7 +219,7 @@ class McCallisterGuardApp extends Homey.App {
     const seconds = Math.round(McCallisterGuardApp.TEST_DURATION_MS / 1000);
     this.eventLog.add('info', `Test: full alarm (modus=alarm) — auto-stopp om ${seconds}s.`);
     const currentMode = this.stateMachine.getMode();
-    if (currentMode !== 'deterrence' && currentMode !== 'alarm') {
+    if (currentMode !== 'deterrence' && currentMode !== 'alarm' && currentMode !== 'perimeter_alarm') {
       this.previousArmedMode = currentMode !== 'disarmed' ? currentMode as 'armed_perimeter' | 'armed' : null;
     }
     await this.deterrence.abort('Test alarm — avskrekking avbrutt.');
@@ -343,20 +352,33 @@ class McCallisterGuardApp extends Homey.App {
    *
    * Design intent: armed_perimeter is used when occupants are HOME (sleeping).
    * Automatically activating lights/sirens/deterrence would be disruptive and
-   * unnecessary — the occupant will react. We therefore only:
-   *   1. Log the event to the internal event log.
-   *   2. Send a push notification to the Homey app.
-   *   3. Fire the alarm_perimeter_triggered flow card so the user's own
+   * unnecessary — the occupant is present and will react. We therefore:
+   *   1. Transition to perimeter_alarm mode (soft alert state).
+   *   2. Log the event to the internal event log.
+   *   3. Send a push notification with sensor + zone detail.
+   *   4. Fire the alarm_perimeter_triggered flow card so the user's own
    *      Homey flows can react (e.g. play a chime, send Pushover, turn on
    *      a hall light, etc.).
    *
-   * The mode stays at armed_perimeter — no deterrence blink, no sirens,
-   * no escalation timer. The user decides what happens next via flows.
+   * No deterrence blink, no sirens, no escalation timer. The user builds
+   * their own flows to react. Subsequent triggers are ignored until the
+   * alert is dismissed (mode returns to armed_perimeter or disarmed).
    */
   private async enterPerimeterAlarm(zoneId: string, deviceId: string, sensorType: 'motion' | 'contact'): Promise<void> {
+    // Already in perimeter_alarm — ignore duplicate triggers.
+    if (this.stateMachine.getMode() === 'perimeter_alarm') return;
+
     const { zoneName, deviceName } = await this.resolveNames(zoneId, deviceId);
     this.eventLog.add('alarm', `**Perimeter** sensor utløst: ${deviceName} i ${zoneName}.`, zoneId, deviceId);
+
+    this.previousArmedMode = 'armed_perimeter';
+    this.alarmContext = { zoneId, zoneName, deviceId, deviceName, sensorType, alarmType: 'perimeter' };
+
+    // Transition to perimeter_alarm — handleModeChange skips the generic push for this mode.
+    await this.stateMachine.setMode('perimeter_alarm');
+    // Push the sensor-specific message after the mode is confirmed.
     this.pushTimeline(`🚨 Skallsikring: ${deviceName} i ${zoneName}`);
+
     const baseTokens: Record<string, unknown> = {
       zone: zoneName,
       sensor: deviceName,
@@ -368,7 +390,6 @@ class McCallisterGuardApp extends Homey.App {
     try {
       await this.homey.flow.getTriggerCard('alarm_perimeter_triggered').trigger(baseTokens);
     } catch { /* best-effort */ }
-    // No mode change — mode stays armed_perimeter. User flows handle the rest.
   }
 
   /**
@@ -387,9 +408,9 @@ class McCallisterGuardApp extends Homey.App {
 
   private alarmStopped(reason: string): void {
     const ctx = this.alarmContext;
-    this.pushTimeline('Alarm stoppet');
-
     const alarmType = ctx?.alarmType ?? 'intrusion';
+    this.pushTimeline(alarmType === 'perimeter' ? 'Skallsikring alarm stoppet' : 'Alarm stoppet');
+
     const baseTokens = {
       zone: ctx?.zoneName ?? '',
       sensor: ctx?.deviceName ?? '',
@@ -411,6 +432,7 @@ class McCallisterGuardApp extends Homey.App {
     if (mode === 'disarmed') return 'Alarm av';
     if (mode === 'armed') return 'Alarm på';
     if (mode === 'armed_perimeter') return 'Alarm skallsikring';
+    if (mode === 'perimeter_alarm') return '🚨 Skallsikring utløst';
     if (mode === 'deterrence') return 'Avskrekking';
     if (mode === 'alarm') return '🚨 ALARM';
     return String(mode);
@@ -542,7 +564,10 @@ class McCallisterGuardApp extends Homey.App {
     if (next !== 'disarmed' && previous === 'disarmed') {
       this.runHealthCheck().catch(() => { /* best-effort */ });
     }
-    this.pushTimeline(this.modeLabel(next));
+    // perimeter_alarm push is handled by enterPerimeterAlarm with sensor + zone detail.
+    if (next !== 'perimeter_alarm') {
+      this.pushTimeline(this.modeLabel(next));
+    }
     try {
       this.homey.flow.getTriggerCard('mode_changed').trigger({
         mode_new: next,
@@ -617,7 +642,10 @@ class McCallisterGuardApp extends Homey.App {
     this.homey.flow.getConditionCard('alarm_active')
       .registerRunListener(async () => this.stateMachine.getMode() === 'alarm');
     this.homey.flow.getConditionCard('alarm_perimeter_active')
-      .registerRunListener(async () => this.stateMachine.getMode() === 'armed_perimeter');
+      .registerRunListener(async () => {
+        const m = this.stateMachine.getMode();
+        return m === 'armed_perimeter' || m === 'perimeter_alarm';
+      });
     this.homey.flow.getConditionCard('get_mode')
       .registerRunListener(async (args: { mode: Mode }) => this.stateMachine.getMode() === args.mode);
     this.homey.flow.getConditionCard('alarm_triggered_from')
@@ -728,7 +756,8 @@ class McCallisterGuardApp extends Homey.App {
     // Motion burst: use alarm-count when in deterrence or alarm mode.
     const isAlertMode = mode === 'deterrence' || mode === 'alarm';
     this.cameras.captureMotionBurst(zoneId, isAlertMode).catch(() => { /* best-effort */ });
-    if (mode === 'disarmed') return;
+    // perimeter_alarm: already alerting — ignore additional motion until dismissed.
+    if (mode === 'disarmed' || mode === 'perimeter_alarm') return;
     if (this.stateMachine.isExitDelayActive()) return;
     if (mode === 'armed_perimeter') {
       // Perimeter mode: notify only — fire flow card, no mode change, no deterrence/alarm.
@@ -762,7 +791,8 @@ class McCallisterGuardApp extends Homey.App {
 
   private async onContact(zoneId: string, deviceId: string): Promise<void> {
     const mode = this.stateMachine.getMode();
-    if (mode === 'disarmed' || mode === 'deterrence' || mode === 'alarm') return;
+    // perimeter_alarm: already alerting — ignore additional contacts until dismissed.
+    if (mode === 'disarmed' || mode === 'deterrence' || mode === 'alarm' || mode === 'perimeter_alarm') return;
     if (this.stateMachine.isExitDelayActive()) return;
     // In perimeter mode: silently ignore non-perimeter sensors, bypassed sensors and
     // sensors that were already open when armed_perimeter was activated.

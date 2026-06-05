@@ -221,6 +221,31 @@ describe('StateMachine', () => {
       expect(sm.getMode()).toBe('alarm');
     });
 
+    it('tillater armed_perimeter → perimeter_alarm → armed_perimeter (avvis og tilbake til skallsikring)', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('armed_perimeter');
+      await sm.setMode('perimeter_alarm');
+      expect(sm.getMode()).toBe('perimeter_alarm');
+      await sm.setMode('armed_perimeter');
+      expect(sm.getMode()).toBe('armed_perimeter');
+    });
+
+    it('tillater armed_perimeter → perimeter_alarm → disarmed', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('armed_perimeter');
+      await sm.setMode('perimeter_alarm');
+      await sm.setMode('disarmed');
+      expect(sm.getMode()).toBe('disarmed');
+    });
+
+    it('kaster feil ved perimeter_alarm → deterrence (ugyldig overgang)', async () => {
+      const sm = new StateMachine(homey as never, log);
+      await sm.setMode('armed_perimeter');
+      await sm.setMode('perimeter_alarm');
+      await expect(sm.setMode('deterrence')).rejects.toThrow('Ugyldig modusovergang');
+      expect(sm.getMode()).toBe('perimeter_alarm');
+    });
+
     it('kaster feil ved alarm → deterrence (ugyldig overgang)', async () => {
       const sm = new StateMachine(homey as never, log);
       await sm.setMode('alarm');

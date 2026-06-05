@@ -1,6 +1,6 @@
 'use strict';
 
-export type Mode = 'disarmed' | 'armed' | 'armed_perimeter' | 'deterrence' | 'alarm';
+export type Mode = 'disarmed' | 'armed' | 'armed_perimeter' | 'perimeter_alarm' | 'deterrence' | 'alarm';
 
 export type AlarmType = 'perimeter' | 'intrusion' | 'entry_delay_timeout';
 
@@ -131,11 +131,14 @@ export const DEFAULT_SETTINGS: GuardSettings = {
  *   armed           → disarmed  (must disarm before switching to armed_perimeter)
  *   armed_perimeter → disarmed | armed
  *
- * System-initiated (sensor trigger → deterrence → alarm):
- *   armed_perimeter | armed → deterrence  (sensor triggers deterrence mode)
- *   deterrence              → alarm       (escalation timer fires)
- *   deterrence | alarm      → armed_perimeter | armed | disarmed
- *                             (stopAlarm returns to previous armed state)
+ * System-initiated (sensor trigger):
+ *   armed_perimeter → perimeter_alarm    (perimeter sensor fires — notify only, no lights)
+ *   armed           → deterrence         (sensor triggers deterrence mode)
+ *   deterrence      → alarm              (escalation timer fires)
+ *   deterrence | alarm → armed_perimeter | armed | disarmed
+ *                        (stopAlarm returns to previous armed state)
+ *   perimeter_alarm → armed_perimeter | disarmed
+ *                     (user dismisses or disarms the perimeter alert)
  *
  * Test-initiated (from disarmed or armed):
  *   disarmed | armed_* → deterrence | alarm  (testDeterrence / testAlarm)
@@ -143,7 +146,8 @@ export const DEFAULT_SETTINGS: GuardSettings = {
 export const VALID_TRANSITIONS: Readonly<Record<Mode, readonly Mode[]>> = {
   disarmed: ['armed', 'armed_perimeter', 'deterrence', 'alarm'],
   armed: ['disarmed', 'deterrence', 'alarm'],
-  armed_perimeter: ['disarmed', 'armed', 'deterrence', 'alarm'],
+  armed_perimeter: ['disarmed', 'armed', 'perimeter_alarm', 'deterrence', 'alarm'],
+  perimeter_alarm: ['disarmed', 'armed_perimeter'],
   deterrence: ['alarm', 'armed_perimeter', 'armed', 'disarmed'],
   alarm: ['armed_perimeter', 'armed', 'disarmed'],
 };

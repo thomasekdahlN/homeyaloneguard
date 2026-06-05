@@ -38,6 +38,13 @@
           }
         },
         {
+          "id": "perimeter_alarm",
+          "label": {
+            "en": "Perimeter alarm triggered",
+            "no": "Skallsikring alarm utløst"
+          }
+        },
+        {
           "id": "deterrence",
           "label": {
             "en": "Deterrence active",

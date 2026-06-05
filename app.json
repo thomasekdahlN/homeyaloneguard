@@ -42,10 +42,6 @@
       "method": "GET",
       "path": "/events"
     },
-    "clearEventLog": {
-      "method": "DELETE",
-      "path": "/events"
-    },
     "getZones": {
       "method": "GET",
       "path": "/zones"
@@ -195,14 +191,6 @@
               "en": "2026-05-25T19:05:42.123Z",
               "no": "2026-05-25T19:05:42.123Z"
             }
-          },
-          {
-            "name": "snapshot",
-            "type": "image",
-            "title": {
-              "en": "Snapshot image (if available)",
-              "no": "Snapshot-bilde (om tilgjengelig)"
-            }
           }
         ],
         "id": "alarm_perimeter_triggered"
@@ -324,14 +312,6 @@
             "example": {
               "en": "2026-05-25T19:05:42.123Z",
               "no": "2026-05-25T19:05:42.123Z"
-            }
-          },
-          {
-            "name": "snapshot",
-            "type": "image",
-            "title": {
-              "en": "Snapshot image (if available)",
-              "no": "Snapshot-bilde (om tilgjengelig)"
             }
           }
         ],
@@ -571,6 +551,13 @@
                 "label": {
                   "en": "Perimeter armed",
                   "no": "Skallsikring"
+                }
+              },
+              {
+                "id": "perimeter_alarm",
+                "label": {
+                  "en": "Perimeter alarm triggered",
+                  "no": "Skallsikring alarm utløst"
                 }
               },
               {

@@ -8,7 +8,7 @@ McCallister Guard er ikke enda et passivt alarmsystem. I stedet for å bare tute
 
 ## Funksjoner
 
-- **Fem moduser** — `Hjemme` / `disarmed` (deaktivert), `Borte` / `armed` (full overvåking + Kevin-simulering), `Skallsikring` / `armed_perimeter` (kun valgte perimeter-sensorer aktive — typisk når du sover), `Avskrekking` / `deterrence` (lys-blink i reaksjonssone — advarselsfase), `Alarm` / `alarm` (full krise — sirene og strobe)
+- **Seks moduser** — `Hjemme` / `disarmed` (deaktivert), `Borte` / `armed` (full overvåking + Kevin-simulering), `Skallsikring` / `armed_perimeter` (kun valgte perimeter-sensorer aktive — typisk når du sover), `Skallsikring alarm` / `perimeter_alarm` (perimeter-sensor utløst mens du er hjemme — push + flow-kort, ingen sirene), `Avskrekking` / `deterrence` (lys-blink i reaksjonssone — advarselsfase), `Alarm` / `alarm` (full krise — sirene og strobe)
 - **Skallsikring med sensorvalg** — pek ut nøyaktig hvilke sensorer (ytterdører, vinduer, uteområder) som skal kunne utløse alarm ved Skallsikring; bevegelse innendørs ignoreres
 - **Inngangsforsinkelse (⏱) pr. sensor** — marker hoveddør/bakdør med ⏱ for å gi en `entry_delay`-nedtelling (default 30 s) ved åpning, slik at en autorisert bruker med kodelås/smart-lås rekker å deaktivere systemet før alarmen utløses
 - **Sone-basert avskrekking** — bevegelse i én sone trigger avskrekking i en annen «reaksjonssone» (matrise konfigurerbar per sone), så tyven aldri møter responsen sin der hen er
@@ -113,8 +113,12 @@ stateDiagram-v2
   Skallsikring --> Hjemme: dashboard setMode(disarmed)\n[force=true, alltid OK]\neller scheduler (06:00)
   Skallsikring --> Hjemme: flow-kort setMode(disarmed)\n[uten force: ignoreres]
   Skallsikring --> Borte: setMode(armed)
-  Skallsikring --> Skallsikring: perimeter-sensor utløst\n→ push + alarm_perimeter_triggered\n(ingen modus-endring)
+  Skallsikring --> SkallsikringAlarm: perimeter-sensor utløst\n→ mode=perimeter_alarm\npush + alarm_perimeter_triggered
   Skallsikring --> Alarm: testAlarm()
+
+  SkallsikringAlarm: Skallsikring alarm\n(perimeter_alarm)
+  SkallsikringAlarm --> Skallsikring: bruker avviser\n(stopAlarm / dashboard)
+  SkallsikringAlarm --> Hjemme: setMode(disarmed)\n(fullt deaktivert)
 
   Avskrekking --> Alarm: escalation_minutes timer
   Avskrekking --> Hjemme: stopAlarm() / setMode(disarmed)
@@ -253,7 +257,7 @@ sequenceDiagram
 | Kort | Tokens | Når |
 |---|---|---|
 | `alarm_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`, `snapshot` (image, om tilgjengelig) | Sensor aktiverer alarm i **Borte** (`armed`) — etter entry delay |
-| `alarm_perimeter_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`, `snapshot` (image, om tilgjengelig) | Sensor aktiverer alarm i **Skallsikring** (`armed_perimeter`) — etter entry delay |
+| `alarm_perimeter_triggered` | `zone`, `sensor`, `sensor_type`, `mode`, `timestamp`, `snapshot` (image, om tilgjengelig) | Perimeter-sensor utløst i **Skallsikring** — modus settes til `perimeter_alarm`, push sendes, bruker-flows reagerer |
 | `alarm_stopped` | `zone`, `sensor`, `reason` | Borte-alarm stoppet (av bruker, deaktivering eller automatisk) |
 | `alarm_perimeter_stopped` | `zone`, `sensor`, `reason` | Skallsikring-alarm stoppet |
 | `mode_changed` | `mode_new`, `mode_previous` | Systemet bytter modus — inkl. overgang til `deterrence` og `alarm` |
@@ -265,8 +269,8 @@ sequenceDiagram
 | Kort | Tilstand |
 |---|---|
 | `alarm_active` | Systemet er i `alarm`-modus (full alarm utløst) |
-| `alarm_perimeter_active` | Systemet er i `armed_perimeter`-modus (Skallsikring aktiv) |
-| `get_mode` | Systemet er i valgt modus — dropdown med alle 5 modi |
+| `alarm_perimeter_active` | Systemet er i `armed_perimeter` **eller** `perimeter_alarm` — Skallsikring aktiv (overvåking eller alarm) |
+| `get_mode` | Systemet er i valgt modus — dropdown med alle 6 modi (inkl. `perimeter_alarm`) |
 | `alarm_triggered_from` | Pågående alarm/avskrekking ble utløst fra valgt modus (`armed` / `armed_perimeter`) |
 
 ### Actions
@@ -284,13 +288,15 @@ sequenceDiagram
 
 | Situasjon | Trigger-kort | Modus-endring |
 |---|---|---|
-| Perimeter-sensor utløst i **Skallsikring** (du er hjemme) | `alarm_perimeter_triggered` | **Ingen** — forblir `armed_perimeter` |
-| Bevegelse/kontakt i **Borte** (ingen hjemme) | `alarm_triggered` | → `deterrence` → `alarm` (eskalering) |
+| Perimeter-sensor utløst i **Skallsikring** (du er hjemme) | `alarm_perimeter_triggered` | `armed_perimeter` → **`perimeter_alarm`** (myk alarm — ingen sirene) |
+| Bevegelse/kontakt i **Borte** (ingen hjemme) | `alarm_triggered` | `armed` → `deterrence` → `alarm` (full eskalering) |
 
 > **Viktig designvalg — Skallsikring:**
 > `armed_perimeter` er for når du er **hjemme og sover**. Automatisk lysstyring, sirener eller
-> avskrekking ville vekke deg unødvendig. Appen sender kun push og fyrer flow-kortet — du bestemmer
-> selv hva som skal skje via dine egne Homey-flows. Det gir full kontroll uten støy.
+> avskrekking ville vekke deg unødvendig. Appen setter modus til `perimeter_alarm`, sender push og
+> fyrer flow-kortet — du bestemmer selv hva som skal skje via dine egne Homey-flows. Det gir full
+> kontroll uten støy. Alarmen avvises ved å trykke «Stopp alarm» i dashboard — systemet returnerer
+> til `armed_perimeter` (Skallsikring fortsetter).
 
 ### Typisk reaksjon per kilde
 
@@ -467,6 +473,8 @@ Tidslinjen viser bare høy-nivå modus-endringer. Ikoner/app-logo vises automati
 | Systemet deaktiveres | `Alarm av` |
 | Borte-modus aktivert | `Alarm på` |
 | Skallsikring aktivert | `Alarm skallsikring` |
+| Perimeter-sensor utløst (Skallsikring alarm) | `🚨 Skallsikring: [sensor] i [sone]` |
+| Skallsikring alarm stoppet | `Skallsikring alarm stoppet` |
 | Avskrekking startet (som modus) | `Avskrekking` |
 | Full alarm (som modus) | `🚨 ALARM` |
 | Deaktivert av navngitt bruker | `Deaktivert av [navn]` |
@@ -576,7 +584,7 @@ DA   Sonos: Stop avspilling
 
 ## Sett opp flows basert på modus-endringer
 
-Systemet har fem modi: `disarmed` (Hjemme), `armed` (Borte), `armed_perimeter` (Skallsikring), `deterrence` (Avskrekking), `alarm` (Alarm utløst). Overganger mellom disse fyrer alltid `mode_changed`-triggeren med `mode_new` og `mode_previous` som tokens.
+Systemet har seks modi: `disarmed` (Hjemme), `armed` (Borte), `armed_perimeter` (Skallsikring), `perimeter_alarm` (Skallsikring alarm utløst), `deterrence` (Avskrekking), `alarm` (Alarm utløst). Overganger mellom disse fyrer alltid `mode_changed`-triggeren med `mode_new` og `mode_previous` som tokens.
 
 ### Generelt mønster
 
