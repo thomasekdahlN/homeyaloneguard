@@ -25,14 +25,14 @@ Homey Alone Guard er ikke enda et passivt alarmsystem. I stedet for å bare tute
 ## Skjermbilder
 
 <p align="center">
-  <img src="design/screendumps/IMG_8961.PNG" width="30%" />
-  <img src="design/screendumps/IMG_8962.PNG" width="30%" />
-  <img src="design/screendumps/IMG_8963.PNG" width="30%" />
+  <img src="design/screendumps/IMG_9057.PNG" width="30%" />
+  <img src="design/screendumps/IMG_9058.PNG" width="30%" />
+  <img src="design/screendumps/IMG_9059.PNG" width="30%" />
 </p>
 <p align="center">
-  <img src="design/screendumps/IMG_8964.PNG" width="30%" />
-  <img src="design/screendumps/IMG_8965.PNG" width="30%" />
-  <img src="design/screendumps/IMG_8966.PNG" width="30%" />
+  <img src="design/screendumps/IMG_9060.PNG" width="30%" />
+  <img src="design/screendumps/IMG_9061.PNG" width="30%" />
+  <img src="design/screendumps/IMG_9062.PNG" width="30%" />
 </p>
 
 ## Arkitektur
